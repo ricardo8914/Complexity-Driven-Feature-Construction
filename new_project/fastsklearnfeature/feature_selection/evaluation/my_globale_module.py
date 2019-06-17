@@ -13,3 +13,6 @@ preprocessed_folds_global = None
 epsilon_global = None
 complexity_delta_global = None
 remove_parents = True
+grouping_across_folds_global = None
+grouping_across_test_global = None
+
