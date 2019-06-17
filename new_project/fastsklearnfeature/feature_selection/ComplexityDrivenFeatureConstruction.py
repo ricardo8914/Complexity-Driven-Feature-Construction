@@ -369,7 +369,7 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
             #0th
             if c == 1:
                 cost_2_raw_features[c]: List[CandidateFeature] = []
-                #print(self.raw_features)
+                print(self.raw_features)
                 for raw_f in self.raw_features:
                     sympy_representation = sympy.Symbol('X' + str(raw_f.column_id))
                     raw_f.sympy_representation = sympy_representation
@@ -388,6 +388,21 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
 
                     self.materialize_raw_features(raw_f)
                     raw_f.derive_properties(raw_f.runtime_properties['train_transformed'][0])
+
+                for my_raw_feature in self.raw_features:
+                    if str(my_raw_feature) == 'personal_status':
+                        #print(my_raw_feature.runtime_properties['train_transformed'])
+                        my_gender_groups_across_folds = []
+                        for my_fold_i in range(len(my_raw_feature.runtime_properties['test_transformed'])):
+                            #print(str(np.unique(my_raw_feature.runtime_properties['test_transformed'][my_fold_i])))
+                            data_of_current_fold = my_raw_feature.runtime_properties['test_transformed'][my_fold_i]
+                            group_gender = np.where(data_of_current_fold == "'female div/dep/mar'", 'female', 'male')
+                            my_gender_groups_across_folds.append(group_gender)
+                        my_globale_module.grouping_accross_folds_global = my_gender_groups_across_folds
+
+                        data_of_current_fold = my_raw_feature.runtime_properties['one_test_set_transformed']
+                        group_gender = np.where(data_of_current_fold == "'female div/dep/mar'", 'female', 'male')
+                        my_globale_module.grouping_across_test_global = group_gender
 
             # first unary
             # we apply all unary transformation to all c-1 in the repo (except combinations and other unary?)
@@ -540,7 +555,7 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
 
             if len(current_layer) > 0:
                 if Config.get_default('score.test', 'False') == 'True':
-                    print("\nBest representation found for complexity = " + str(c) + ": " + str(max_feature) + "\nmean cross-validation score: " + "{0:.2f}".format(max_feature.runtime_properties['score']) + ", score on test: " + "{0:.2f}".format(max_feature.runtime_properties['test_score']) + "\n")
+                    print("\nBest representation found for complexity = " + str(c) + ": " + str(max_feature) + "\nmean cross-validation score: " + "{0:.2f}".format(max_feature.runtime_properties['score']) + ", score on test: " + "{0:.2f}".format(max_feature.runtime_properties['test_score']) + ", fair score on test: " + "{0:.2f}".format(max_feature.runtime_properties['fair_test_score']) + "\n")
                 else:
                     print("\nBest representation found for complexity = " + str(c) + ": " + str(
                         max_feature) + "\nmean cross-validation score: " + "{0:.2f}".format(
@@ -550,7 +565,7 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
                 #print(max_feature.runtime_properties['fold_scores'])
 
             # upload best feature to OpenML
-            candidate2openml(max_feature, my_globale_module.classifier_global, self.reader.task, 'ComplexityDriven')
+#            candidate2openml(max_feature, my_globale_module.classifier_global, self.reader.task, 'ComplexityDriven')
 
 
             if self.save_logs:
@@ -559,6 +574,7 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
                 pickle.dump(cost_2_binary_transformed, open(Config.get_default("tmp.folder", "/tmp") + "/data_binary.p", "wb"))
                 pickle.dump(cost_2_combination, open(Config.get_default("tmp.folder", "/tmp") + "/data_combination.p", "wb"))
                 pickle.dump(cost_2_dropped_evaluated_candidates, open(Config.get_default("tmp.folder", "/tmp") + "/data_dropped.p", "wb"))
+
 
 
             max_feature_per_complexity[c] = max_feature
@@ -614,6 +630,8 @@ if __name__ == '__main__':
 
     #dataset = (Config.get('data_path') + '/transfusion.data', 4)
 
+    dataset = ('/Users/rsd8914/Downloads/dataset_31_credit-g.csv',20)
+
 
     from fastsklearnfeature.reader.OnlineOpenMLReader import OnlineOpenMLReader
 
@@ -640,8 +658,8 @@ if __name__ == '__main__':
     #task_id = openMLname2task['eeg_eye_state']
     #task_id = openMLname2task['MagicTelescope']
     #task_id = openMLname2task['adult']
-    task_id = openMLname2task['mushroom']
-    dataset = None
+    #task_id = openMLname2task['mushroom']
+    #dataset = None
 
 
 
@@ -668,7 +686,7 @@ if __name__ == '__main__':
 
     #paper featureset
     #selector = ComplexityDrivenFeatureConstruction(dataset, c_max=10, folds=10, max_seconds=None, save_logs=True, transformation_producer=get_transformation_for_cat_feature_space)
-    selector = ComplexityDrivenFeatureConstruction(None, c_max=10, folds=10, max_seconds=None, save_logs=True, transformation_producer=get_transformation_for_division, reader=OnlineOpenMLReader(task_id, test_folds=1), score=make_scorer(f1_score, average='micro'))
+    selector = ComplexityDrivenFeatureConstruction(dataset, c_max=10, folds=10, max_seconds=None, save_logs=True, transformation_producer=get_transformation_for_division, score=make_scorer(f1_score, average='micro'))
 
     '''
     selector = ComplexityDrivenFeatureConstruction(None, c_max=10, folds=10, max_seconds=None, save_logs=True,

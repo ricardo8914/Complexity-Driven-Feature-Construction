@@ -87,7 +87,7 @@ class RawFeature(CandidateFeature):
         except Exception as e:
             print(e)
             #was nonnumeric data
-            self.properties['missing_values'] = np.isnan(training_data).any()
+#            self.properties['missing_values'] = np.isnan(training_data).any()
         self.properties['number_distinct_values'] = len(np.unique(training_data))
 
     def is_numeric(self):
