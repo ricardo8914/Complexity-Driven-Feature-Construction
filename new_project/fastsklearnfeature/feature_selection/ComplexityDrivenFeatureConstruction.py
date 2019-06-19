@@ -1,3 +1,4 @@
+from candidate_generation.feature_space.one_hot import get_transformation_for_cat_feature_space
 from fastsklearnfeature.candidates.CandidateFeature import CandidateFeature
 from typing import List, Dict, Set
 import time
@@ -565,7 +566,11 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
 
             if len(current_layer) > 0:
                 if Config.get_default('score.test', 'False') == 'True':
-                    print("\nBest representation found for complexity = " + str(c) + ": " + str(max_feature) + "\nmean cross-validation score: " + "{0:.2f}".format(max_feature.runtime_properties['score']) + ", score on test: " + "{0:.2f}".format(max_feature.runtime_properties['test_score']) + ", fair score on test: " + "{0:.2f}".format(max_feature.runtime_properties['fair_test_score']) + "\n")
+                    print("\nBest representation found for complexity = " + str(c) + ": " + str(max_feature) +
+                          "\nmean cross-validation score: " + "{0:.2f}".format(max_feature.runtime_properties['score']) + ", score on test: "
+                          + "{0:.2f}".format(max_feature.runtime_properties['test_score']) + ", fair score on test: "
+                          + "{0:.2f}".format(max_feature.runtime_properties['fair_test_score']) +
+                          ", Area under FNR_FPR: " + "{0:.2f}".format(max_feature.runtime_properties['AUC_FN_FP']) + "\n")
                 else:
                     print("\nBest representation found for complexity = " + str(c) + ": " + str(
                         max_feature) + "\nmean cross-validation score: " + "{0:.2f}".format(
@@ -715,7 +720,7 @@ if __name__ == '__main__':
                                                    remove_parents=False)
     '''
 
-    selector = ComplexityDrivenFeatureConstruction(dataset, c_max=10, folds=10, max_seconds=None, save_logs=True, score=make_scorer(f1_score, average='micro'),remove_parents=False)
+    selector = ComplexityDrivenFeatureConstruction(dataset, c_max=10, folds=10, max_seconds=None, save_logs=True,transformation_producer=get_transformation_for_cat_feature_space ,score=make_scorer(f1_score, average='micro'),remove_parents=False)
 
 
     '''

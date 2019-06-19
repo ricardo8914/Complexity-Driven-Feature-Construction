@@ -16,6 +16,7 @@ from fastsklearnfeature.transformations.binary.NonCommutativeBinaryTransformatio
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import LinearRegression
 from fastsklearnfeature.transformations.OneHotTransformation import OneHotTransformation
+from sklearn import metrics
 import copy
 
 
@@ -42,6 +43,11 @@ def my_custom_fair_func(y_pred, binary_groups):
     area_b = np.trapz(pp_b, dx=100) / area_norm
 
     return 1 - abs(area_a - area_b)
+
+def AUC(y_test,y_pred):
+    fpr, tpr, thresholds = metrics.roc_curve(y_test, y_pred)
+    AUC=metrics.auc(fpr, 1-tpr)
+    return AUC
 
 
 def grid_search(train_transformed, test_transformed, training_all, one_test_set_transformed,
@@ -78,6 +84,7 @@ def grid_search(train_transformed, test_transformed, training_all, one_test_set_
 
     test_score = None
     fair_test_score = None
+    AUC_FN_FP=None
     if Config.get_default('score.test', 'False') == 'True':
         # refit to entire training and test on test set
         clf = classifier(**best_param)
@@ -86,10 +93,11 @@ def grid_search(train_transformed, test_transformed, training_all, one_test_set_
         y_pred_proba = clf.predict_proba(one_test_set_transformed)[:, 1]
         test_score = score._sign * score._score_func(test_target, y_pred, **score._kwargs)
         fair_test_score = my_custom_fair_func(y_pred_proba, my_globale_module.grouping_across_test_global)
+        AUC_FN_FP=AUC(test_target,y_pred_proba)
 
         # np.save('/tmp/true_predictions', self.test_target)
 
-    return best_mean_cross_val_score, test_score, best_param, y_pred, best_score_list, clf, fair_test_score, y_pred_proba
+    return best_mean_cross_val_score, test_score, best_param, y_pred, best_score_list, clf, fair_test_score, y_pred_proba,AUC_FN_FP
 
 
 def evaluate(candidate_id: int):
@@ -168,7 +176,7 @@ def evaluate(candidate_id: int):
         candidate.runtime_properties['passed'] = False
         candidate.runtime_properties['score'], candidate.runtime_properties['test_score'], candidate.runtime_properties[
             'hyperparameters'], y_pred, candidate.runtime_properties['fold_scores'],my_clf, candidate.runtime_properties[
-            'fair_test_score'], y_pred_proba = grid_search(train_transformed, test_transformed, training_all,
+            'fair_test_score'], y_pred_proba,candidate.runtime_properties['AUC_FN_FP'] = grid_search(train_transformed, test_transformed, training_all,
                                                                    one_test_set_transformed,
                                                                    my_globale_module.grid_search_parameters_global,
                                                                    my_globale_module.score_global,
