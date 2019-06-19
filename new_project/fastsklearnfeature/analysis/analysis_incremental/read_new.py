@@ -32,14 +32,29 @@ cost_2_dropped_evaluated_candidates: Dict[int, List[CandidateFeature]] = pickle.
 
 #print(cost_2_unary_transformed)
 
-for k,v in cost_2_raw_features.items():
-    for candidate in v:
-        c='fair_test_score'
-        if c in list(candidate.runtime_properties.keys()):
-            print(str(candidate) + ": Test Score = "+ "{0:.2f}".format(candidate.runtime_properties['test_score']) + ' ,Fair Test Score = ' + "{0:.2f}".format(candidate.runtime_properties['fair_test_score']))
+#for k,v in cost_2_raw_features.items():
+#    for candidate in v:
+#        c='fair_test_score'
+#        if c in list(candidate.runtime_properties.keys()):
+#            print(str(candidate) + ": Test Score = "+ "{0:.2f}".format(candidate.runtime_properties['test_score']) + ' ,Fair Test Score = ' + "{0:.2f}".format(candidate.runtime_properties['fair_test_score']))
+            #print(candidate.runtime_properties)
+
+#for k,v in cost_2_binary_transformed.items():
+#    for candidate in v:
+#        c='fair_test_score'
+#        if c in list(candidate.runtime_properties.keys()):
+#            print(str(candidate) + ": Test Score = "+ "{0:.2f}".format(candidate.runtime_properties['test_score']) + ' ,Fair Test Score = ' + "{0:.2f}".format(candidate.runtime_properties['fair_test_score']))
+
+
+#for k,v in cost_2_combination.items():
+#    for candidate in v:
+#        c='fair_test_score'
+#        if c in list(candidate.runtime_properties.keys()):
+#            print(str(candidate) + ": Test Score = "+ "{0:.2f}".format(candidate.runtime_properties['test_score']) + ' ,Fair Test Score = ' + "{0:.2f}".format(candidate.runtime_properties['fair_test_score']))
 
 for k,v in cost_2_binary_transformed.items():
     for candidate in v:
         c='fair_test_score'
         if c in list(candidate.runtime_properties.keys()):
             print(str(candidate) + ": Test Score = "+ "{0:.2f}".format(candidate.runtime_properties['test_score']) + ' ,Fair Test Score = ' + "{0:.2f}".format(candidate.runtime_properties['fair_test_score']))
+

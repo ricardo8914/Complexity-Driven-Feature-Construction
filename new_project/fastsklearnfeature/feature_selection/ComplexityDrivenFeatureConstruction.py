@@ -384,20 +384,35 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
                     self.materialize_raw_features(raw_f)
                     #raw_f.derive_properties(raw_f.runtime_properties['train_transformed'][0])
 
+                #for my_raw_feature in self.raw_features:
+                #    if str(my_raw_feature) == 'personal_status':
+                #        #print(my_raw_feature.runtime_properties['train_transformed'])
+                #        my_gender_groups_across_folds = []
+                #        for my_fold_i in range(len(my_raw_feature.runtime_properties['test_transformed'])):
+                            #print(str(np.unique(my_raw_feature.runtime_properties['test_transformed'][my_fold_i])))
+                #            data_of_current_fold = my_raw_feature.runtime_properties['test_transformed'][my_fold_i]
+                #            group_gender = np.where(data_of_current_fold == "'female div/dep/mar'", 'female', 'male')
+                #            my_gender_groups_across_folds.append(group_gender)
+                #        my_globale_module.grouping_accross_folds_global = my_gender_groups_across_folds
+
+                #        data_of_current_fold = my_raw_feature.runtime_properties['one_test_set_transformed']
+                #        group_gender = np.where(data_of_current_fold == "'female div/dep/mar'", 'female', 'male')
+                #        my_globale_module.grouping_across_test_global = group_gender
+
                 for my_raw_feature in self.raw_features:
-                    if str(my_raw_feature) == 'personal_status':
+                    if str(my_raw_feature) == 'age':
                         #print(my_raw_feature.runtime_properties['train_transformed'])
-                        my_gender_groups_across_folds = []
+                        my_age_groups_across_folds = []
                         for my_fold_i in range(len(my_raw_feature.runtime_properties['test_transformed'])):
                             #print(str(np.unique(my_raw_feature.runtime_properties['test_transformed'][my_fold_i])))
                             data_of_current_fold = my_raw_feature.runtime_properties['test_transformed'][my_fold_i]
-                            group_gender = np.where(data_of_current_fold == "'female div/dep/mar'", 'female', 'male')
-                            my_gender_groups_across_folds.append(group_gender)
-                        my_globale_module.grouping_accross_folds_global = my_gender_groups_across_folds
+                            group_age = np.where(data_of_current_fold > 35 , 'old', 'young')
+                            my_age_groups_across_folds.append(group_age)
+                        my_globale_module.grouping_accross_folds_global = my_age_groups_across_folds
 
                         data_of_current_fold = my_raw_feature.runtime_properties['one_test_set_transformed']
-                        group_gender = np.where(data_of_current_fold == "'female div/dep/mar'", 'female', 'male')
-                        my_globale_module.grouping_across_test_global = group_gender
+                        group_age = np.where(data_of_current_fold > 35 , 'old', 'young')
+                        my_globale_module.grouping_across_test_global = group_age
 
             # first unary
             # we apply all unary transformation to all c-1 in the repo (except combinations and other unary?)
@@ -641,7 +656,7 @@ if __name__ == '__main__':
     #task_id = openMLname2task['iris'] # feature selection is enough
     #task_id = openMLname2task['breast cancer']#only feature selection
     #task_id = openMLname2task['contraceptive'] #until 3 only feature selection
-    task_id = openMLname2task['german credit'] #cool with onehot
+    #task_id = openMLname2task['german credit'] #cool with onehot
     #task_id = openMLname2task['banknote'] #raw features are already amazing
     #task_id = openMLname2task['heart-statlog']
     #task_id = openMLname2task['musk'] # feature selection only
@@ -692,7 +707,7 @@ if __name__ == '__main__':
     #paper featureset
     #selector = ComplexityDrivenFeatureConstruction(dataset, c_max=10, folds=10, max_seconds=None, save_logs=True, transformation_producer=get_transformation_for_cat_feature_space)
     #selector = ComplexityDrivenFeatureConstruction(None, c_max=10, folds=10, max_seconds=None, save_logs=True, transformation_producer=get_transformation_for_division, reader=OnlineOpenMLReader(task_id, test_folds=1), score=make_scorer(f1_score, average='micro'))
-    selector = ComplexityDrivenFeatureConstruction(None, c_max=6, folds=10, max_seconds=None, save_logs=True, transformation_producer=get_transformation_for_division, reader=OnlineOpenMLReader(task_id, test_folds=1), score=make_scorer(roc_auc_score), epsilon=-np.inf, remove_parents=False, upload2openml=True)
+    #selector = ComplexityDrivenFeatureConstruction(None, c_max=6, folds=10, max_seconds=None, save_logs=True, transformation_producer=get_transformation_for_division, reader=OnlineOpenMLReader(task_id, test_folds=1), score=make_scorer(roc_auc_score), epsilon=-np.inf, remove_parents=False, upload2openml=True)
     '''
     selector = ComplexityDrivenFeatureConstruction(dataset, c_max=10, folds=10, max_seconds=None, save_logs=True,
                                                    transformation_producer=get_transformation_for_division,
@@ -700,7 +715,7 @@ if __name__ == '__main__':
                                                    remove_parents=False)
     '''
 
-    #selector = ComplexityDrivenFeatureConstruction(dataset, c_max=10, folds=10, max_seconds=None, save_logs=True, transformation_producer=get_transformation_for_division, score=make_scorer(f1_score, average='micro'))
+    selector = ComplexityDrivenFeatureConstruction(dataset, c_max=10, folds=10, max_seconds=None, save_logs=True, score=make_scorer(f1_score, average='micro'),remove_parents=False)
 
 
     '''
