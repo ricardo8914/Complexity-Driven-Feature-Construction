@@ -19,7 +19,7 @@ import warnings
 
 class ComplexityDrivenFeatureConstructionScikit:
 
-    def __init__(self, max_time_secs=None, scoring=make_scorer(f1_score, average='micro'), model=LogisticRegression, parameter_grid={'penalty': ['l2'], 'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000], 'solver': ['lbfgs'], 'class_weight': ['balanced'], 'max_iter': [10000], 'multi_class':['auto']}, n_jobs=None, epsilon=-np.inf, feature_names = None, feature_is_categorical=None):
+    def __init__(self, max_time_secs=1000, scoring=make_scorer(f1_score, average='micro'), model=LogisticRegression, parameter_grid={'penalty': ['l2'], 'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000], 'solver': ['lbfgs'], 'class_weight': ['balanced'], 'max_iter': [10000], 'multi_class':['auto']}, n_jobs=None, epsilon=-np.inf, feature_names = None, feature_is_categorical=None):
         self.fe = None
         self.max_feature_rep: CandidateFeature = None
         self.pipeline = None
@@ -39,10 +39,10 @@ class ComplexityDrivenFeatureConstructionScikit:
         self.fe = ComplexityDrivenFeatureConstruction(None, reader=ScikitReader(features, target,
                                                                                 feature_names=self.feature_names,
                                                                                 feature_is_categorical=self.feature_is_categorical),
-                                                      score=self.scoring, c_max=6, folds=10,
+                                                      score=self.scoring, c_max=4, folds=10,
                                                       max_seconds=self.max_time_secs, classifier=self.model,
                                                       grid_search_parameters=self.parameter_grid, n_jobs=self.n_jobs,
-                                                      epsilon=0.0)
+                                                      epsilon= self.epsilon)
 
         self.max_feature_rep = self.fe.run()
 
@@ -89,7 +89,6 @@ if __name__ == '__main__':
     y = iris.target
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
 
     fe = ComplexityDrivenFeatureConstructionScikit()
     fe.fit(X_train, y_train)
