@@ -45,12 +45,12 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
                                                                                                 'multi_class':['auto']
                                                                                                 },
                  transformation_producer=get_transformation_for_division,
-                 epsilon=0.0,
-                 c_max=2,
+                 epsilon= -np.inf,
+                 c_max=4,
                  folds=10,
                  score=make_scorer(f1_score, average='micro'),
-                 max_seconds=None,
-                 save_logs=False,
+                 max_seconds=1000,
+                 save_logs=True,
                  reader=None,
                  upload2openml=False,
                  remove_parents=True,
@@ -101,8 +101,6 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
             if (candidates[i].get_number_of_transformations() + 1) == cost:
                 filtered_candidates.append(candidates[i])
         return filtered_candidates
-
-
 
     def get_all_possible_representations_for_step_x(self, x, candidates):
 
@@ -330,12 +328,11 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
 
         unary_transformations, binary_transformations = self.transformation_producer(self.train_X_all, self.raw_features)
 
-
-
         cost_2_raw_features: Dict[int, List[CandidateFeature]] = {}
         cost_2_unary_transformed: Dict[int, List[CandidateFeature]] = {}
         cost_2_binary_transformed: Dict[int, List[CandidateFeature]] = {}
         cost_2_combination: Dict[int, List[CandidateFeature]] = {}
+
 
         if self.save_logs:
             cost_2_dropped_evaluated_candidates: Dict[int, List[CandidateFeature]] = {}
@@ -345,7 +342,7 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
         unique_raw_combinations = False
 
 
-        baseline_score = 0.0#self.evaluate_candidates([CandidateFeature(DummyOneTransformation(None), [self.raw_features[0]])])[0]['score']
+        baseline_score = 0.0 #self.evaluate_candidates([CandidateFeature(DummyOneTransformation(None), [self.raw_features[0]])])[0]['score']
         #print("baseline: " + str(baseline_score))
 
 
