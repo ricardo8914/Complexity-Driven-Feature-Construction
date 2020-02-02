@@ -8,9 +8,9 @@ from pathlib import Path
 import pandas as pd
 from fastsklearnfeature.configuration import Config
 
-#c = Config.Config
-
-#print(c.load())
+# c = Config.Config
+#
+# print(c.load())
 
 
 home = str(Path.home())
@@ -24,16 +24,20 @@ my_pipeline = Pipeline([('new_construction', ConstructionTransformer(c_max=5, sc
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,
-                                                    feature_names=['age', 'priors_count', 'c_charge_degree'],
-                                                    feature_is_categorical=[False, False, True]))])
+                                                    feature_names=['age', 'age_cat', 'priors_count', 'c_charge_degree'],
+                                                    feature_is_categorical=[False, True, False, True]))])
 
 COMPAS = pd.read_csv(home + '/Finding-Fair-Representations-Through-Feature-Construction/data' + '/compas-analysis/compas-scores.csv')
 
-COMPAS = COMPAS.loc[(COMPAS['days_b_screening_arrest'] <= 30) & (COMPAS['is_recid'] != -1) & (COMPAS['race'].isin(['African-American','Caucasian']))
-                     & (COMPAS['c_charge_degree'].isin(['F','M']))
-                     , ['race', 'age', 'priors_count', 'is_recid', 'c_charge_degree']]
+COMPAS = COMPAS.loc[(COMPAS['days_b_screening_arrest'] <= 30) &
+                    (COMPAS['priors_count'].isin([1, 2, 3, 4, 5, 6]))
+                    & (COMPAS['is_recid'] != -1)
+                    & (COMPAS['race'].isin(['African-American','Caucasian']))
+                    & (COMPAS['c_charge_degree'].isin(['F','M']))
+                    , ['race', 'age', 'age_cat', 'priors_count','is_recid','c_charge_degree']]
 
-X = COMPAS.loc[:, ['age', 'priors_count', 'c_charge_degree']].to_numpy()
+X = COMPAS.loc[:, ['age', 'age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
 y = COMPAS.loc[:, ['is_recid']].to_numpy()
 
-my_pipeline.fit(X, y)
+t = my_pipeline.fit_transform(X, y)
+print(t.shape)

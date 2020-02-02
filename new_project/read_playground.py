@@ -1,0 +1,262 @@
+import pickle
+from fastsklearnfeature.candidates.CandidateFeature import CandidateFeature
+from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import make_scorer
+from typing import List, Dict
+import pandas as pd
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import KFold
+from sklearn.pipeline import Pipeline
+import numpy as np
+from sklearn.metrics import accuracy_score,f1_score
+from sklearn.feature_selection import RFECV
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+import sys
+from pathlib import Path
+sys.path.insert(0,'/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
+from measures.ROD import ROD
+from methods.capuchin import repair_dataset
+home = str(Path.home())
+
+
+path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/feature_construction/tmp'
+COMPAS_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/compas-analysis'
+
+cost_2_raw_features: Dict[int, List[CandidateFeature]]  = pickle.load(open(path + "/data_raw.p", "rb"))
+cost_2_unary_transformed : Dict[int, List[CandidateFeature]] = pickle.load(open(path + "/data_unary.p", "rb"))
+cost_2_binary_transformed: Dict[int, List[CandidateFeature]]  = pickle.load(open(path + "/data_binary.p", "rb"))
+cost_2_combination : Dict[int, List[CandidateFeature]]  = pickle.load(open(path + "/data_combination.p", "rb"))
+cost_2_dropped_evaluated_candidates: Dict[int, List[CandidateFeature]] = pickle.load(open(path + "/data_dropped.p", "rb"))
+
+home = str(Path.home())
+
+acc = make_scorer(accuracy_score, greater_is_better=True, needs_threshold=False)
+my_pipeline = Pipeline([('new_construction', ConstructionTransformer(c_max=5, scoring=acc, n_jobs=4, model=LogisticRegression(),
+                                                       parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
+                                                                       'class_weight': ['balanced'], 'max_iter': [100000],
+                                                                       'multi_class':['auto']}, cv=5, epsilon=-np.inf,
+                                                    feature_names=['age', 'age_cat', 'priors_count', 'c_charge_degree'],
+                                                    feature_is_categorical=[False, True, False, True]))])
+
+COMPAS = pd.read_csv(COMPAS_path + '/compas-scores.csv')
+
+COMPAS = COMPAS.loc[(COMPAS['days_b_screening_arrest'] <= 30) &
+                    (COMPAS['priors_count'].isin([1, 2, 3, 4, 5, 6]))
+                    & (COMPAS['is_recid'] != -1)
+                    & (COMPAS['race'].isin(['African-American','Caucasian']))
+                    & (COMPAS['c_charge_degree'].isin(['F','M']))
+                    , ['race','age', 'age_cat', 'priors_count','is_recid','c_charge_degree']]
+
+# cv_grid_clf = GridSearchCV(RandomForestClassifier(), param_grid = {
+#     'n_estimators' : [100, 140, 200],
+#     'criterion' : ['gini', 'entropy'],
+#     'max_depth' : [2, 3, 5]},
+#     n_jobs=-1,
+#     scoring='accuracy')
+
+cv_grid_transformed = GridSearchCV(LogisticRegression(), param_grid = {
+    'penalty' : ['l2'],
+    'C' : [0.5, 1, 1.5],
+    'class_weight' : [None, 'balanced'],
+    'max_iter' : [100000]},
+    n_jobs=-1,
+    scoring='accuracy')
+
+transformed_pipeline = Pipeline(steps=[('scaler', MinMaxScaler()),
+                                ('feature_selection',
+                                RFECV(estimator=LogisticRegression(penalty = 'l2', C = 1, solver = 'lbfgs',
+                                                                       class_weight = 'balanced',
+                                                                   max_iter = 100000), step=0.3, cv=5, scoring='accuracy',
+                                                                    n_jobs=-1, min_features_to_select=10)),
+                                 #SelectKBest(chi2, k=10)),
+                                ('clf', cv_grid_transformed)])
+
+categorical_features = ['race', 'age_cat', 'c_charge_degree']
+numerical_features = ['priors_count']
+
+categorical_transformer = Pipeline(steps=[
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))])
+
+numerical_transformer = Pipeline(steps=[
+    ('scaler', MinMaxScaler())])
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('cat', categorical_transformer, categorical_features),
+        ('num', numerical_transformer, numerical_features)])
+
+original_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
+                      ('clf', LogisticRegression())])
+
+cv_grid_original = GridSearchCV(original_pipeline, param_grid = {
+    'clf__penalty' : ['l2'],
+    'clf__C' : [0.5, 1, 1.5],
+    'clf__class_weight' : [None, 'balanced'],
+    'clf__max_iter' : [100000]},
+    n_jobs=-1,
+    scoring='accuracy')
+
+categorical_features_2 = ['age_cat', 'c_charge_degree']
+numerical_features_2 = ['priors_count']
+
+categorical_transformer_2 = Pipeline(steps=[
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))])
+
+numerical_transformer_2 = Pipeline(steps=[
+    ('scaler', MinMaxScaler())])
+
+preprocessor_2 = ColumnTransformer(
+    transformers=[
+        ('cat', categorical_transformer_2, categorical_features_2),
+        ('num', numerical_transformer_2, numerical_features_2)])
+
+dropped_pipeline = Pipeline(steps=[('preprocessor', preprocessor_2),
+                      ('clf', LogisticRegression())])
+
+cv_grid_dropped = GridSearchCV(dropped_pipeline, param_grid = {
+    'clf__penalty' : ['l2'],
+    'clf__C' : [0.5, 1, 1.5],
+    'clf__class_weight' : [None, 'balanced'],
+    'clf__max_iter' : [100000]},
+    n_jobs=-1,
+    scoring='accuracy')
+
+categorical_features_3 = ['race','age_cat', 'c_charge_degree']
+numerical_features_3 = ['priors_count']
+
+categorical_transformer_3 = Pipeline(steps=[
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))])
+
+numerical_transformer_3 = Pipeline(steps=[
+    ('scaler', MinMaxScaler())])
+
+preprocessor_3 = ColumnTransformer(
+    transformers=[
+        ('cat', categorical_transformer_3, categorical_features_3),
+        ('num', numerical_transformer_3, numerical_features_3)])
+
+capuchin_pipeline = Pipeline(steps=[('preprocessor', preprocessor_3),
+                      ('clf', LogisticRegression())])
+
+cv_grid_capuchin = GridSearchCV(capuchin_pipeline, param_grid = {
+    'clf__penalty' : ['l2'],
+    'clf__C' : [0.5, 1, 1.5],
+    'clf__class_weight' : [None, 'balanced'],
+    'clf__max_iter' : [100000]},
+    n_jobs=-1,
+    scoring='accuracy')
+
+kf1 = KFold(n_splits=5, shuffle=True)
+
+count = 0
+method_list = []
+for train_index, test_index in kf1.split(COMPAS):
+
+    train_df = COMPAS.iloc[train_index]
+    test_df = COMPAS.iloc[test_index]
+
+    COMPAS_train_transformed = train_df.loc[:, ['age', 'age_cat', 'priors_count', 'c_charge_degree']]
+    COMPAS_test_transformed = test_df.loc[:, ['age', 'age_cat', 'priors_count', 'c_charge_degree']]
+    COMPAS_train_original = train_df.loc[:, ['race', 'age_cat', 'priors_count', 'c_charge_degree']]
+    COMPAS_test_original = test_df.loc[:, ['race', 'age_cat', 'priors_count', 'c_charge_degree']]
+    COMPAS_train_dropped = train_df.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']]
+    COMPAS_test_dropped = test_df.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']]
+
+    train_df_capuchin = repair_dataset(train_df, sensitive_attribute='race',
+                         admissible_attributes=['age_cat', 'priors_count', 'c_charge_degree'], target='is_recid')
+
+    COMPAS_train_capuchin = train_df_capuchin.loc[:, ['race', 'age_cat', 'priors_count', 'c_charge_degree']]
+    y_train_capuchin = train_df_capuchin.loc[:, ['is_recid']].to_numpy()
+
+    X_train = train_df.loc[:, ['age', 'age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
+    y_train = train_df.loc[:, ['is_recid']].to_numpy()
+    X_test = test_df.loc[:, ['age', 'age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
+    y_test = test_df.loc[:, ['is_recid']].to_numpy()
+
+    for k, v in cost_2_unary_transformed.items():
+        for c in v:
+            COMPAS_train_transformed[c.get_name()] = c.pipeline.transform(X_train)
+            COMPAS_test_transformed[c.get_name()] = c.pipeline.transform(X_test)
+
+    # COMPAS_train_transformed = my_pipeline.fit_transform(X_train, y_train)
+    # COMPAS_test_transformed = my_pipeline.fit_transform(X_test, y_test)
+
+    for k, v in cost_2_binary_transformed.items():
+        for c in v:
+            COMPAS_train_transformed[c.get_name()] = c.pipeline.transform(X_train)
+            COMPAS_test_transformed[c.get_name()] = c.pipeline.transform(X_test)
+
+    #print(COMPAS_train_transformed.shape)
+    COMPAS_train_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
+    COMPAS_test_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
+
+    transformed = transformed_pipeline.fit(COMPAS_train_transformed, np.ravel(y_train))
+    select_indices = transformed.named_steps['feature_selection'].transform(
+        np.arange(len(COMPAS_train_transformed.columns)).reshape(1, -1)
+    )
+    feature_names = COMPAS_train_transformed.columns[select_indices]
+
+    original = cv_grid_original.fit(COMPAS_train_original, np.ravel(y_train))
+    dropped = cv_grid_dropped.fit(COMPAS_train_dropped, np.ravel(y_train))
+    capuchin = cv_grid_capuchin.fit(COMPAS_train_capuchin, np.ravel(y_train_capuchin))
+
+    y_pred_original = original.predict(COMPAS_test_original)
+    y_pred_proba_original = original.predict_proba(COMPAS_test_original)[:,1]
+    y_pred_dropped = dropped.predict(COMPAS_test_dropped)
+    y_pred_proba_dropped = dropped.predict_proba(COMPAS_test_dropped)[:,1]
+    y_pred_transformed = transformed.predict(COMPAS_test_transformed)
+    y_pred_proba_transformed = transformed.predict_proba(COMPAS_test_transformed)[:,1]
+    y_pred_capuchin = capuchin.predict(COMPAS_test_original)
+    y_pred_proba_capuchin = capuchin.predict_proba(COMPAS_test_original)[:,1]
+
+    contexts = test_df.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
+    sensitive = np.squeeze(test_df['race'].to_numpy())
+
+    rod_transformed = ROD(y_pred_proba_transformed, sensitive, contexts, protected='African-American')
+    rod_original = ROD(y_pred_proba_original, sensitive, contexts, protected='African-American')
+    rod_dropped = ROD(y_pred_proba_dropped, sensitive, contexts, protected='African-American')
+    rod_capuchin = ROD(y_pred_proba_capuchin, sensitive, contexts, protected='African-American')
+
+    acc_transformed = accuracy_score(np.ravel(y_test), y_pred_transformed)
+    f1_transformed = f1_score(np.ravel(y_test), y_pred_transformed)
+    acc_original = accuracy_score(np.ravel(y_test), y_pred_original)
+    f1_original = f1_score(np.ravel(y_test), y_pred_original)
+    acc_dropped = accuracy_score(np.ravel(y_test), y_pred_dropped)
+    f1_dropped = f1_score(np.ravel(y_test), y_pred_dropped)
+    acc_capuchin = accuracy_score(np.ravel(y_test), y_pred_capuchin)
+    f1_capuchin = f1_score(np.ravel(y_test), y_pred_capuchin)
+
+    method_list.extend([['feature_construction', acc_transformed, abs(1-rod_transformed), count + 1],
+                        ['original', acc_original, abs(1-rod_original), count +1],
+                        ['dropped', acc_dropped, abs(1-rod_dropped), count+1],
+                        ['capuchin', acc_capuchin, abs(1-rod_capuchin), count+1]])
+
+    count += 1
+
+    #print()
+    print('# of Features: {}'.format(feature_names.shape[1]))
+    print('Fold: {}'.format(count))
+    print("F1 Transformed: {:.4f}".format(f1_transformed))
+    print("F1 Original: {:.4f}".format(f1_original))
+    print("F1 Dropped: {:.4f}".format(f1_dropped))
+    print("F1 Capuchin: {:.4f}".format(f1_capuchin))
+    print('_________________')
+    print("Accuracy Transformed: {:.4f}".format(acc_transformed))
+    print("Accuracy Original: {:.4f}".format(acc_original))
+    print("Accuracy Dropped: {:.4f}".format(acc_dropped))
+    print("Accuracy Capuchin: {:.4f}".format(acc_capuchin))
+    print('_________________')
+    print("ROD Transformed: {:.4f}".format(rod_transformed))
+    print("ROD Original: {:.4f}".format(rod_original))
+    print("ROD Dropped: {:.4f}".format(rod_dropped))
+    print("ROD Capuchin: {:.4f}".format(rod_capuchin))
+    print('_________________________________________________')
+
+summary_df = pd.DataFrame(method_list, columns=['method', 'accuracy', 'ROD', 'fold'])
+
+print(summary_df.groupby('method')['accuracy'].mean())
+print(summary_df.groupby('method')['ROD'].mean())
