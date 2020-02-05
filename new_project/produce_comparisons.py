@@ -1,7 +1,6 @@
 import pickle
 from fastsklearnfeature.candidates.CandidateFeature import CandidateFeature
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
-from sklearn.pipeline import Pipeline
 from sklearn.metrics import make_scorer
 from typing import List, Dict
 import pandas as pd
@@ -25,6 +24,7 @@ home = str(Path.home())
 
 path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/feature_construction/tmp'
 COMPAS_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/compas-analysis'
+results_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/intermediate_results'
 
 cost_2_raw_features: Dict[int, List[CandidateFeature]]  = pickle.load(open(path + "/data_raw.p", "rb"))
 cost_2_unary_transformed : Dict[int, List[CandidateFeature]] = pickle.load(open(path + "/data_unary.p", "rb"))
@@ -32,7 +32,6 @@ cost_2_binary_transformed: Dict[int, List[CandidateFeature]]  = pickle.load(open
 cost_2_combination : Dict[int, List[CandidateFeature]]  = pickle.load(open(path + "/data_combination.p", "rb"))
 cost_2_dropped_evaluated_candidates: Dict[int, List[CandidateFeature]] = pickle.load(open(path + "/data_dropped.p", "rb"))
 
-home = str(Path.home())
 
 acc = make_scorer(accuracy_score, greater_is_better=True, needs_threshold=False)
 my_pipeline = Pipeline([('new_construction', ConstructionTransformer(c_max=5, scoring=acc, n_jobs=4, model=LogisticRegression(),
@@ -50,13 +49,6 @@ COMPAS = COMPAS.loc[(COMPAS['days_b_screening_arrest'] <= 30) &
                     & (COMPAS['race'].isin(['African-American','Caucasian']))
                     & (COMPAS['c_charge_degree'].isin(['F','M']))
                     , ['race','age', 'age_cat', 'priors_count','is_recid','c_charge_degree']]
-
-# cv_grid_clf = GridSearchCV(RandomForestClassifier(), param_grid = {
-#     'n_estimators' : [100, 140, 200],
-#     'criterion' : ['gini', 'entropy'],
-#     'max_depth' : [2, 3, 5]},
-#     n_jobs=-1,
-#     scoring='accuracy')
 
 cv_grid_transformed = GridSearchCV(LogisticRegression(), param_grid = {
     'penalty' : ['l2'],
@@ -125,7 +117,7 @@ cv_grid_dropped = GridSearchCV(dropped_pipeline, param_grid = {
     n_jobs=-1,
     scoring='accuracy')
 
-categorical_features_3 = ['race','age_cat', 'c_charge_degree']
+categorical_features_3 = ['race', 'age_cat', 'c_charge_degree']
 numerical_features_3 = ['priors_count']
 
 categorical_transformer_3 = Pipeline(steps=[
@@ -230,10 +222,10 @@ for train_index, test_index in kf1.split(COMPAS):
     acc_capuchin = accuracy_score(np.ravel(y_test), y_pred_capuchin)
     f1_capuchin = f1_score(np.ravel(y_test), y_pred_capuchin)
 
-    method_list.extend([['feature_construction', acc_transformed, abs(1-rod_transformed), count + 1],
-                        ['original', acc_original, abs(1-rod_original), count +1],
-                        ['dropped', acc_dropped, abs(1-rod_dropped), count+1],
-                        ['capuchin', acc_capuchin, abs(1-rod_capuchin), count+1]])
+    method_list.extend([['feature_construction', acc_transformed, abs(rod_transformed-1), count + 1],
+                        ['original', acc_original, abs(rod_original-1), count +1],
+                        ['dropped', acc_dropped, abs(rod_dropped-1), count+1],
+                        ['capuchin', acc_capuchin, abs(rod_capuchin-1), count+1]])
 
     count += 1
 
@@ -260,3 +252,5 @@ summary_df = pd.DataFrame(method_list, columns=['method', 'accuracy', 'ROD', 'fo
 
 print(summary_df.groupby('method')['accuracy'].mean())
 print(summary_df.groupby('method')['ROD'].mean())
+
+summary_df.to_csv(path_or_buf=results_path + '/summary_df.csv', index=False)
