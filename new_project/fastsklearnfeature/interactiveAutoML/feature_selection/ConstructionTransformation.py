@@ -47,7 +47,8 @@ class ConstructionTransformer(BaseEstimator, TransformerMixin):
         all_features = CandidateFeature(IdentityTransformation(-1), numeric_representations)
         all_standardized = CandidateFeature(MinMaxScalingTransformation(), [all_features])
 
-        self.pipeline_ = all_standardized.pipeline
+        self.pipeline_ = all_features.pipeline
+        self.all_features_set = numeric_representations
 
         self.pipeline_.fit(X, y)
         return self
