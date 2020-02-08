@@ -4,8 +4,11 @@ from sklearn.metrics import make_scorer
 from sklearn.metrics import roc_auc_score, recall_score, f1_score, precision_score, accuracy_score
 from sklearn.linear_model import LogisticRegression
 import numpy as np
-from pathlib import Path
 import pandas as pd
+import sys
+from pathlib import Path
+sys.path.insert(0,'/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
+from measures.ROD import ROD
 from fastsklearnfeature.configuration import Config
 
 # c = Config.Config

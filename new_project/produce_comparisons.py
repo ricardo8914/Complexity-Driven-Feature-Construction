@@ -11,6 +11,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score,f1_score
 from sklearn.feature_selection import RFECV
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
@@ -34,6 +35,7 @@ cost_2_dropped_evaluated_candidates: Dict[int, List[CandidateFeature]] = pickle.
 
 
 acc = make_scorer(accuracy_score, greater_is_better=True, needs_threshold=False)
+f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 my_pipeline = Pipeline([('new_construction', ConstructionTransformer(c_max=5, scoring=acc, n_jobs=4, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
@@ -50,20 +52,33 @@ COMPAS = COMPAS.loc[(COMPAS['days_b_screening_arrest'] <= 30) &
                     & (COMPAS['c_charge_degree'].isin(['F','M']))
                     , ['race','age', 'age_cat', 'priors_count','is_recid','c_charge_degree']]
 
-cv_grid_transformed = GridSearchCV(LogisticRegression(), param_grid = {
-    'penalty' : ['l2'],
-    'C' : [0.5, 1, 1.5],
+# cv_grid_transformed = GridSearchCV(LogisticRegression(), param_grid = {
+# #     'penalty' : ['l2'],
+# #     'C' : [0.5, 1, 1.5],
+# #     'class_weight' : [None, 'balanced'],
+# #     'max_iter' : [100000]},
+# #     n_jobs=-1,
+# #     scoring='accuracy')
+
+#rod = make_scorer(ROD, greater_is_better=False, needs_proba=True)
+
+cv_grid_transformed = GridSearchCV(RandomForestClassifier(), param_grid = {
+    'n_estimators' : [500],
+    'criterion' : ['gini', 'entropy'],
     'class_weight' : [None, 'balanced'],
-    'max_iter' : [100000]},
+    'max_depth' : [None, 3] #,
+    #'ccp_alpha' : [0.0, 0.5, 1.0]
+    },
     n_jobs=-1,
-    scoring='accuracy')
+    scoring='f1')
+
 
 transformed_pipeline = Pipeline(steps=[('scaler', MinMaxScaler()),
-                                ('feature_selection',
-                                RFECV(estimator=LogisticRegression(penalty = 'l2', C = 1, solver = 'lbfgs',
-                                                                       class_weight = 'balanced',
-                                                                   max_iter = 100000), step=0.3, cv=5, scoring='accuracy',
-                                                                    n_jobs=-1, min_features_to_select=10)),
+                                # ('feature_selection',
+                                # RFECV(estimator=LogisticRegression(penalty = 'l2', C = 1, solver = 'lbfgs',
+                                #                                        class_weight = 'balanced',
+                                #                                    max_iter = 100000), step=0.3, cv=5, scoring='accuracy',
+                                #                                     n_jobs=-1, min_features_to_select=10)),
                                  #SelectKBest(chi2, k=10)),
                                 ('clf', cv_grid_transformed)])
 
@@ -82,15 +97,25 @@ preprocessor = ColumnTransformer(
         ('num', numerical_transformer, numerical_features)])
 
 original_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
-                      ('clf', LogisticRegression())])
+                      ('clf', RandomForestClassifier())])
+
+# cv_grid_original = GridSearchCV(original_pipeline, param_grid = {
+#     'clf__penalty' : ['l2'],
+#     'clf__C' : [0.5, 1, 1.5],
+#     'clf__class_weight' : [None, 'balanced'],
+#     'clf__max_iter' : [100000]},
+#     n_jobs=-1,
+#     scoring='accuracy')
 
 cv_grid_original = GridSearchCV(original_pipeline, param_grid = {
-    'clf__penalty' : ['l2'],
-    'clf__C' : [0.5, 1, 1.5],
+    'clf__n_estimators' : [100],
+    'clf__criterion' : ['gini', 'entropy'],
     'clf__class_weight' : [None, 'balanced'],
-    'clf__max_iter' : [100000]},
+    'clf__max_depth' : [None, 3]#,
+    #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
+    },
     n_jobs=-1,
-    scoring='accuracy')
+    scoring='f1')
 
 categorical_features_2 = ['age_cat', 'c_charge_degree']
 numerical_features_2 = ['priors_count']
@@ -107,15 +132,25 @@ preprocessor_2 = ColumnTransformer(
         ('num', numerical_transformer_2, numerical_features_2)])
 
 dropped_pipeline = Pipeline(steps=[('preprocessor', preprocessor_2),
-                      ('clf', LogisticRegression())])
+                      ('clf', RandomForestClassifier())])
+
+# cv_grid_dropped = GridSearchCV(dropped_pipeline, param_grid = {
+#     'clf__penalty' : ['l2'],
+#     'clf__C' : [0.5, 1, 1.5],
+#     'clf__class_weight' : [None, 'balanced'],
+#     'clf__max_iter' : [100000]},
+#     n_jobs=-1,
+#     scoring='accuracy')
 
 cv_grid_dropped = GridSearchCV(dropped_pipeline, param_grid = {
-    'clf__penalty' : ['l2'],
-    'clf__C' : [0.5, 1, 1.5],
+    'clf__n_estimators' : [100],
+    'clf__criterion' : ['gini', 'entropy'],
     'clf__class_weight' : [None, 'balanced'],
-    'clf__max_iter' : [100000]},
+    'clf__max_depth' : [None, 3]#,
+    #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
+    },
     n_jobs=-1,
-    scoring='accuracy')
+    scoring='f1')
 
 categorical_features_3 = ['race', 'age_cat', 'c_charge_degree']
 numerical_features_3 = ['priors_count']
@@ -132,22 +167,32 @@ preprocessor_3 = ColumnTransformer(
         ('num', numerical_transformer_3, numerical_features_3)])
 
 capuchin_pipeline = Pipeline(steps=[('preprocessor', preprocessor_3),
-                      ('clf', LogisticRegression())])
+                      ('clf', RandomForestClassifier())])
+
+# cv_grid_capuchin = GridSearchCV(capuchin_pipeline, param_grid = {
+# #     'clf__penalty' : ['l2'],
+# #     'clf__C' : [0.5, 1, 1.5],
+# #     'clf__class_weight' : [None, 'balanced'],
+# #     'clf__max_iter' : [100000]},
+# #     n_jobs=-1,
+# #     scoring='accuracy')
 
 cv_grid_capuchin = GridSearchCV(capuchin_pipeline, param_grid = {
-    'clf__penalty' : ['l2'],
-    'clf__C' : [0.5, 1, 1.5],
+    'clf__n_estimators' : [100],
+    'clf__criterion' : ['gini', 'entropy'],
     'clf__class_weight' : [None, 'balanced'],
-    'clf__max_iter' : [100000]},
+    'clf__max_depth' : [None, 3]#,
+    #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
+    },
     n_jobs=-1,
-    scoring='accuracy')
+    scoring='f1')
 
 kf1 = KFold(n_splits=5, shuffle=True)
 
 count = 0
 method_list = []
 for train_index, test_index in kf1.split(COMPAS):
-
+    print('start with fold: %s' % str(count+1))
     train_df = COMPAS.iloc[train_index]
     test_df = COMPAS.iloc[test_index]
 
@@ -169,6 +214,18 @@ for train_index, test_index in kf1.split(COMPAS):
     X_test = test_df.loc[:, ['age', 'age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
     y_test = test_df.loc[:, ['is_recid']].to_numpy()
 
+    contexts_train = train_df.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
+    sensitive_train = np.squeeze(train_df['race'].to_numpy())
+
+    contexts_train_capuchin = train_df_capuchin.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
+    sensitive_train_capuchin = np.squeeze(train_df_capuchin['race'].to_numpy())
+
+    fair_train_original = make_scorer(ROD, greater_is_better=False,
+                             sensitive_data=sensitive_train, contexts=contexts_train, protected='African-American')
+
+    fair_train_capuchin = make_scorer(ROD, greater_is_better=False, needs_proba=True,
+                             sensitive_data=sensitive_train_capuchin, contexts=contexts_train_capuchin, protected='African-American')
+
     for k, v in cost_2_unary_transformed.items():
         for c in v:
             COMPAS_train_transformed[c.get_name()] = c.pipeline.transform(X_train)
@@ -183,14 +240,17 @@ for train_index, test_index in kf1.split(COMPAS):
             COMPAS_test_transformed[c.get_name()] = c.pipeline.transform(X_test)
 
     #print(COMPAS_train_transformed.shape)
+
     COMPAS_train_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
     COMPAS_test_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
 
-    transformed = transformed_pipeline.fit(COMPAS_train_transformed, np.ravel(y_train))
-    select_indices = transformed.named_steps['feature_selection'].transform(
-        np.arange(len(COMPAS_train_transformed.columns)).reshape(1, -1)
-    )
-    feature_names = COMPAS_train_transformed.columns[select_indices]
+    #cv_grid_transformed.set_params({'scoring' : fair_train_original})
+    #cv_grid_transformed.scoring = fair_train_original
+    transformed = transformed_pipeline.fit(COMPAS_train_transformed, np.ravel(y_train)) ###### PROBLEM WITH THE INDICES WHEN PASSED TO ROD!!!!!
+    # select_indices = transformed.named_steps['feature_selection'].transform(
+    #     np.arange(len(COMPAS_train_transformed.columns)).reshape(1, -1)
+    # )
+    # feature_names = COMPAS_train_transformed.columns[select_indices]
 
     original = cv_grid_original.fit(COMPAS_train_original, np.ravel(y_train))
     dropped = cv_grid_dropped.fit(COMPAS_train_dropped, np.ravel(y_train))
@@ -208,10 +268,10 @@ for train_index, test_index in kf1.split(COMPAS):
     contexts = test_df.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
     sensitive = np.squeeze(test_df['race'].to_numpy())
 
-    rod_transformed = ROD(y_pred_proba_transformed, sensitive, contexts, protected='African-American')
-    rod_original = ROD(y_pred_proba_original, sensitive, contexts, protected='African-American')
-    rod_dropped = ROD(y_pred_proba_dropped, sensitive, contexts, protected='African-American')
-    rod_capuchin = ROD(y_pred_proba_capuchin, sensitive, contexts, protected='African-American')
+    rod_transformed = ROD(np.ravel(y_test), y_pred_proba_transformed, sensitive, contexts, protected='African-American')
+    rod_original = ROD(np.ravel(y_test), y_pred_proba_original, sensitive, contexts, protected='African-American')
+    rod_dropped = ROD(np.ravel(y_test), y_pred_proba_dropped, sensitive, contexts, protected='African-American')
+    rod_capuchin = ROD(np.ravel(y_test), y_pred_proba_capuchin, sensitive, contexts, protected='African-American')
 
     acc_transformed = accuracy_score(np.ravel(y_test), y_pred_transformed)
     f1_transformed = f1_score(np.ravel(y_test), y_pred_transformed)
@@ -222,15 +282,15 @@ for train_index, test_index in kf1.split(COMPAS):
     acc_capuchin = accuracy_score(np.ravel(y_test), y_pred_capuchin)
     f1_capuchin = f1_score(np.ravel(y_test), y_pred_capuchin)
 
-    method_list.extend([['feature_construction', acc_transformed, abs(rod_transformed-1), count + 1],
-                        ['original', acc_original, abs(rod_original-1), count +1],
-                        ['dropped', acc_dropped, abs(rod_dropped-1), count+1],
-                        ['capuchin', acc_capuchin, abs(rod_capuchin-1), count+1]])
+    method_list.extend([['feature_construction', acc_transformed, f1_transformed, rod_transformed, count + 1],
+                        ['original', acc_original, f1_original, rod_original, count +1],
+                        ['dropped', acc_dropped, f1_dropped, rod_dropped, count+1],
+                        ['capuchin', acc_capuchin, f1_capuchin, rod_capuchin, count+1]])
 
     count += 1
 
     #print()
-    print('# of Features: {}'.format(feature_names.shape[1]))
+    #print('# of Features: {}'.format(feature_names.shape[1]))
     print('Fold: {}'.format(count))
     print("F1 Transformed: {:.4f}".format(f1_transformed))
     print("F1 Original: {:.4f}".format(f1_original))
@@ -248,9 +308,9 @@ for train_index, test_index in kf1.split(COMPAS):
     print("ROD Capuchin: {:.4f}".format(rod_capuchin))
     print('_________________________________________________')
 
-summary_df = pd.DataFrame(method_list, columns=['method', 'accuracy', 'ROD', 'fold'])
+summary_df = pd.DataFrame(method_list, columns=['Method', 'Accuracy', 'F1', 'ROD', 'fold'])
 
-print(summary_df.groupby('method')['accuracy'].mean())
-print(summary_df.groupby('method')['ROD'].mean())
+print(summary_df.groupby('Method')['Accuracy'].mean())
+print(summary_df.groupby('Method')['ROD'].mean())
 
-summary_df.to_csv(path_or_buf=results_path + '/summary_df.csv', index=False)
+summary_df.to_csv(path_or_buf=results_path + '/summary_rf500f1_df.csv', index=False)
