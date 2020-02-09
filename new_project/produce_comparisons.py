@@ -9,7 +9,7 @@ from sklearn.model_selection import KFold
 from sklearn.pipeline import Pipeline
 import numpy as np
 from sklearn.metrics import accuracy_score,f1_score
-from sklearn.feature_selection import RFECV
+from sklearn.feature_selection import RFECV, SelectKBest, chi2
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import MinMaxScaler
@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0,'/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
 from measures.ROD import ROD
+from measures.logROD import LROD
 from methods.capuchin import repair_dataset
 home = str(Path.home())
 
@@ -50,7 +51,7 @@ COMPAS = COMPAS.loc[(COMPAS['days_b_screening_arrest'] <= 30) &
                     & (COMPAS['is_recid'] != -1)
                     & (COMPAS['race'].isin(['African-American','Caucasian']))
                     & (COMPAS['c_charge_degree'].isin(['F','M']))
-                    , ['race','age', 'age_cat', 'priors_count','is_recid','c_charge_degree']]
+                    , ['race', 'age', 'age_cat', 'priors_count', 'is_recid', 'c_charge_degree']]
 
 # cv_grid_transformed = GridSearchCV(LogisticRegression(), param_grid = {
 # #     'penalty' : ['l2'],
@@ -62,25 +63,34 @@ COMPAS = COMPAS.loc[(COMPAS['days_b_screening_arrest'] <= 30) &
 
 #rod = make_scorer(ROD, greater_is_better=False, needs_proba=True)
 
-cv_grid_transformed = GridSearchCV(RandomForestClassifier(), param_grid = {
-    'n_estimators' : [500],
-    'criterion' : ['gini', 'entropy'],
-    'class_weight' : [None, 'balanced'],
-    'max_depth' : [None, 3] #,
-    #'ccp_alpha' : [0.0, 0.5, 1.0]
+
+
+features2_drop = ['race', 'age_cat', 'c_charge_degree']
+preprocessor_transformed = ColumnTransformer(
+    transformers=[
+        ('drop_cat', 'drop', features2_drop,)], remainder='passthrough')
+
+transformed_pipeline = Pipeline(steps=[('preprocessor', preprocessor_transformed),
+                                ('scaler', MinMaxScaler()),
+                                #('feature_selection',
+                                #RFECV(estimator=LogisticRegression(penalty = 'l2', C = 1, solver = 'lbfgs',
+                                #                                        #class_weight = 'balanced',
+                                #                                    max_iter = 100000), step=0.3, cv=2, scoring='accuracy',
+                                #                                     n_jobs=-1, min_features_to_select=10)),
+                                 #SelectKBest(chi2, k=1000)),
+                                #,('clf', cv_grid_transformed)
+                                ('clf', RandomForestClassifier())])
+
+cv_grid_transformed = GridSearchCV(transformed_pipeline, param_grid = {
+    'clf__n_estimators' : [1000],#,
+    'clf__criterion' : ['gini', 'entropy'],
+    'clf__class_weight' : [None, 'balanced'],
+    'clf__max_depth' : [None, 3, 5], #,
+    #'clf__ccp_alpha' : [None, 0.0, 0.5, 1.0]
     },
     n_jobs=-1,
-    scoring='f1')
-
-
-transformed_pipeline = Pipeline(steps=[('scaler', MinMaxScaler()),
-                                # ('feature_selection',
-                                # RFECV(estimator=LogisticRegression(penalty = 'l2', C = 1, solver = 'lbfgs',
-                                #                                        class_weight = 'balanced',
-                                #                                    max_iter = 100000), step=0.3, cv=5, scoring='accuracy',
-                                #                                     n_jobs=-1, min_features_to_select=10)),
-                                 #SelectKBest(chi2, k=10)),
-                                ('clf', cv_grid_transformed)])
+    cv=5,
+    scoring='accuracy')
 
 categorical_features = ['race', 'age_cat', 'c_charge_degree']
 numerical_features = ['priors_count']
@@ -115,7 +125,7 @@ cv_grid_original = GridSearchCV(original_pipeline, param_grid = {
     #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
     },
     n_jobs=-1,
-    scoring='f1')
+    scoring='accuracy')
 
 categorical_features_2 = ['age_cat', 'c_charge_degree']
 numerical_features_2 = ['priors_count']
@@ -150,7 +160,7 @@ cv_grid_dropped = GridSearchCV(dropped_pipeline, param_grid = {
     #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
     },
     n_jobs=-1,
-    scoring='f1')
+    scoring='accuracy')
 
 categorical_features_3 = ['race', 'age_cat', 'c_charge_degree']
 numerical_features_3 = ['priors_count']
@@ -185,7 +195,7 @@ cv_grid_capuchin = GridSearchCV(capuchin_pipeline, param_grid = {
     #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
     },
     n_jobs=-1,
-    scoring='f1')
+    scoring='accuracy')
 
 kf1 = KFold(n_splits=5, shuffle=True)
 
@@ -196,8 +206,8 @@ for train_index, test_index in kf1.split(COMPAS):
     train_df = COMPAS.iloc[train_index]
     test_df = COMPAS.iloc[test_index]
 
-    COMPAS_train_transformed = train_df.loc[:, ['age', 'age_cat', 'priors_count', 'c_charge_degree']]
-    COMPAS_test_transformed = test_df.loc[:, ['age', 'age_cat', 'priors_count', 'c_charge_degree']]
+    COMPAS_train_transformed = train_df.loc[:, ['race', 'age', 'age_cat', 'priors_count', 'c_charge_degree']]
+    COMPAS_test_transformed = test_df.loc[:, ['race', 'age', 'age_cat', 'priors_count', 'c_charge_degree']]
     COMPAS_train_original = train_df.loc[:, ['race', 'age_cat', 'priors_count', 'c_charge_degree']]
     COMPAS_test_original = test_df.loc[:, ['race', 'age_cat', 'priors_count', 'c_charge_degree']]
     COMPAS_train_dropped = train_df.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']]
@@ -214,18 +224,6 @@ for train_index, test_index in kf1.split(COMPAS):
     X_test = test_df.loc[:, ['age', 'age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
     y_test = test_df.loc[:, ['is_recid']].to_numpy()
 
-    contexts_train = train_df.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
-    sensitive_train = np.squeeze(train_df['race'].to_numpy())
-
-    contexts_train_capuchin = train_df_capuchin.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
-    sensitive_train_capuchin = np.squeeze(train_df_capuchin['race'].to_numpy())
-
-    fair_train_original = make_scorer(ROD, greater_is_better=False,
-                             sensitive_data=sensitive_train, contexts=contexts_train, protected='African-American')
-
-    fair_train_capuchin = make_scorer(ROD, greater_is_better=False, needs_proba=True,
-                             sensitive_data=sensitive_train_capuchin, contexts=contexts_train_capuchin, protected='African-American')
-
     for k, v in cost_2_unary_transformed.items():
         for c in v:
             COMPAS_train_transformed[c.get_name()] = c.pipeline.transform(X_train)
@@ -239,14 +237,32 @@ for train_index, test_index in kf1.split(COMPAS):
             COMPAS_train_transformed[c.get_name()] = c.pipeline.transform(X_train)
             COMPAS_test_transformed[c.get_name()] = c.pipeline.transform(X_test)
 
-    #print(COMPAS_train_transformed.shape)
+    context_features = ['age_cat', 'priors_count', 'c_charge_degree']
+    sensitive_feature = 'race'
+    context_indices = []
+    for i in context_features:
+        context_indices.extend([list(COMPAS_train_transformed).index(i)])
 
-    COMPAS_train_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
-    COMPAS_test_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
+    sensitive_index = list(COMPAS_train_transformed).index(sensitive_feature)
+
+    fair_train_transformed = make_scorer(LROD, greater_is_better=True, needs_proba=True,
+                            sensitive_data=(COMPAS_train_transformed.loc[:, ['race']]).to_numpy(),
+                            contexts=(COMPAS_train_transformed.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']]).to_numpy(),
+                            protected='African-American')
+
+    #COMPAS_train_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
+    #COMPAS_test_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
+
+    # fair_train_original = make_scorer(ROD, greater_is_better=False,
+    #                          sensitive_data=sensitive_train, contexts=contexts_train, protected='African-American')
+    #
+    # fair_train_capuchin = make_scorer(ROD, greater_is_better=False, needs_proba=True,
+    #                          sensitive_data=sensitive_train_capuchin, contexts=contexts_train_capuchin, protected='African-American')
 
     #cv_grid_transformed.set_params({'scoring' : fair_train_original})
-    #cv_grid_transformed.scoring = fair_train_original
-    transformed = transformed_pipeline.fit(COMPAS_train_transformed, np.ravel(y_train)) ###### PROBLEM WITH THE INDICES WHEN PASSED TO ROD!!!!!
+    #cv_grid_transformed.scoring = fair_train_transformed
+    #print(list(preprocessor_transformed.fit_transform(COMPAS_train_transformed)))
+    transformed = cv_grid_transformed.fit(COMPAS_train_transformed, np.ravel(y_train)) ###### PROBLEM WITH THE INDICES WHEN PASSED TO ROD!!!!!
     # select_indices = transformed.named_steps['feature_selection'].transform(
     #     np.arange(len(COMPAS_train_transformed.columns)).reshape(1, -1)
     # )
