@@ -15,7 +15,7 @@ transformer = Normalizer().fit_transform(array.reshape(1, -1))
 results['Normalized_ROD'] = transformer.flatten()
 #mean_ROD = pd.DataFrame(results.groupby(by=['Method'])['Normalized_ROD'].mean(), columns=['Normalized_ROD'])
 mean_ROD = pd.DataFrame(results.groupby(by=['Method'])['ROD'].mean(), columns=['ROD'])
-mean_ROD = mean_ROD.round(2)
+mean_ROD = mean_ROD.round(3)
 mean_ROD.columns = ['ROD']
 mean_ROD.reset_index(inplace=True)
 results.drop(columns=['ROD'], inplace=True)
