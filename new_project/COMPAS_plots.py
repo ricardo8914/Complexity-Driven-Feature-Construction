@@ -8,7 +8,7 @@ home = str(Path.home())
 
 results_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/intermediate_results'
 
-results = pd.read_csv(results_path + '/summary_rf500f1_df.csv')
+results = pd.read_csv(results_path + '/summary_rf500F1_df.csv')
 
 array = results['ROD'].to_numpy()
 transformer = Normalizer().fit_transform(array.reshape(1, -1))
@@ -27,7 +27,7 @@ print(results.groupby('Method')['ROD'].mean())
 
 my_pal = {"capuchin": "g", "dropped": "b", "feature_construction":"m", "original":"lightskyblue"}
 
-sns.boxplot(y='Accuracy', x='ROD',
+sns.boxplot(y='F1', x='ROD',
                  data=results,
                  palette=my_pal,
                  hue='Method')

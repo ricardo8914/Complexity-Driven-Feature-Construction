@@ -252,35 +252,24 @@ for train_index, test_index in kf1.split(COMPAS):
                             contexts=(X_train.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']]).to_numpy(),
                             protected='African-American')
 
-    # cv_fair = np.mean(
-    #      cross_val_score(transformed_pipeline, X_train, np.ravel(y_train), cv=KFold(5, random_state=42),
-    #                      scoring=fair_train_transformed))
-    #
-    # print(cv_fair)
+    f1_train = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 
-    #COMPAS_train_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
-    #COMPAS_test_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
-
-    # fair_train_original = make_scorer(ROD, greater_is_better=False,
-    #                          sensitive_data=sensitive_train, contexts=contexts_train, protected='African-American')
-    #
-    # fair_train_capuchin = make_scorer(ROD, greater_is_better=False, needs_proba=True,
-    #                          sensitive_data=sensitive_train_capuchin, contexts=contexts_train_capuchin, protected='African-American')
-
-    #cv_grid_transformed.set_params({'scoring' : fair_train_original})
-    cv_grid_transformed.scoring = fair_train
-    #print(list(preprocessor_transformed.fit_transform(COMPAS_train_transformed)))
+    #cv_grid_transformed.scoring = fair_train
+    cv_grid_transformed.scoring = f1_train
     transformed = cv_grid_transformed.fit(COMPAS_train_transformed, np.ravel(y_train)) ###### PROBLEM WITH THE INDICES WHEN PASSED TO ROD!!!!!
     # select_indices = transformed.named_steps['feature_selection'].transform(
     #     np.arange(len(COMPAS_train_transformed.columns)).reshape(1, -1)
     # )
     # feature_names = COMPAS_train_transformed.columns[select_indices]
 
-    cv_grid_original.scoring = fair_train
+    #cv_grid_original.scoring = fair_train
+    cv_grid_original.scoring = f1_train
     original = cv_grid_original.fit(COMPAS_train_original, np.ravel(y_train))
-    cv_grid_dropped.scoring = fair_train
+    #cv_grid_dropped.scoring = fair_train
+    cv_grid_dropped.scoring = f1_train
     dropped = cv_grid_dropped.fit(COMPAS_train_dropped, np.ravel(y_train))
-    cv_grid_capuchin.scoring = fair_train
+    #cv_grid_capuchin.scoring = fair_train
+    cv_grid_capuchin.scoring = f1_train
     capuchin = cv_grid_capuchin.fit(COMPAS_train_capuchin, np.ravel(y_train_capuchin))
 
     y_pred_original = original.predict(COMPAS_test_original)
@@ -340,4 +329,4 @@ summary_df = pd.DataFrame(method_list, columns=['Method', 'Accuracy', 'F1', 'ROD
 print(summary_df.groupby('Method')['Accuracy'].mean())
 print(summary_df.groupby('Method')['ROD'].mean())
 
-summary_df.to_csv(path_or_buf=results_path + '/summary_rf500f1_df.csv', index=False)
+summary_df.to_csv(path_or_buf=results_path + '/summary_rf500F1_df.csv', index=False)
