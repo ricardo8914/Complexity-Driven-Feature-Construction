@@ -73,7 +73,7 @@ features2_build_mask = ([False] * len(features2_build_num)) + ([True] * len(feat
 
 acc = make_scorer(accuracy_score, greater_is_better=True, needs_threshold=False)
 f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
-column_transformation = Pipeline([('new_construction', ConstructionTransformer(c_max=4,max_time_secs=10000, scoring=acc, n_jobs=4, model=LogisticRegression(),
+column_transformation = Pipeline([('new_construction', ConstructionTransformer(c_max=3,max_time_secs=10000, scoring=acc, n_jobs=4, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,
@@ -81,7 +81,7 @@ column_transformation = Pipeline([('new_construction', ConstructionTransformer(c
                                                     feature_is_categorical=features2_build_mask))])
 
 cv_grid_transformed = GridSearchCV(RandomForestClassifier(), param_grid = {
-    'n_estimators' : [1000],#,
+    'n_estimators' : [100],#,
     'criterion' : ['gini', 'entropy'],
     'class_weight' : [None, 'balanced'],
     'max_depth' : [None, 3, 5]#,
@@ -135,9 +135,9 @@ categorical_features_2 = []
 numerical_features_2 = []
 
 for i in list(adult_df):
-    if i != target and adult_df[i].dtype == np.dtype('O'):
+    if i != target and i not in inadmissible_features and i != sensitive_feature and adult_df[i].dtype == np.dtype('O'):
         categorical_features_2.extend([i])
-    elif i != target and  adult_df[i].dtype != np.dtype('O'):
+    elif i != target and i not in inadmissible_features and i != sensitive_feature and adult_df[i].dtype != np.dtype('O'):
         numerical_features_2.extend([i])
 
 categorical_transformer_2 = Pipeline(steps=[
@@ -176,7 +176,7 @@ def generate_binned_df(df):
         if i != target and (df_[i].dtype != np.dtype('O') and len(df_[i].unique()) > 4):
 
             out, bins = pd.cut(df_[i], bins=4, retbins=True)
-            df_['binned_' + i] = out
+            df_['binned_' + i] = out.astype(str)
             columns2_drop.extend([i])
 
     df_.drop(columns=columns2_drop, inplace=True)
@@ -189,9 +189,9 @@ numerical_features_3 = []
 a = generate_binned_df(capuchin_df)
 
 for i in list(a):
-    if i != target and (a[i].dtype == np.dtype('O') or a[i].dtype == 'category'):
+    if i != target and i != sensitive_feature and i not in inadmissible_features and (a[i].dtype == np.dtype('O') or a[i].dtype == 'category'):
         categorical_features_3.extend([i])
-    elif i != target and (a[i].dtype != np.dtype('O') and a[i].dtype != 'category'):
+    elif i != target and i != sensitive_feature and i not in inadmissible_features and (a[i].dtype != np.dtype('O') and a[i].dtype != 'category'):
         numerical_features_3.extend([i])
 
 categorical_transformer_3 = Pipeline(steps=[
@@ -259,11 +259,11 @@ for train_index, test_index in kf1.split(adult_df):
 
     train_repaired = capuchin_repair_pipeline.fit_transform(train_df)
     X_train_repaired = train_repaired.loc[:,
-                       ['workclass', 'education', 'marital-status', 'occupation', 'sex', 'binned_age', 'binned_capital-gain',
+                       ['workclass', 'education', 'occupation', 'binned_age', 'binned_capital-gain',
                         'binned_capital-loss', 'binned_hours-per-week']]
     y_train_repaired = train_repaired.loc[:, ['target']].to_numpy()
-    X_test_capuchin = (generate_binned_df(test_df)).loc[:,['workclass', 'education', 'marital-status', 'occupation',
-                                                    'sex', 'binned_age', 'binned_capital-gain',
+    X_test_capuchin = (generate_binned_df(test_df)).loc[:,['workclass', 'education', 'occupation',
+                                                     'binned_age', 'binned_capital-gain',
                                                     'binned_capital-loss', 'binned_hours-per-week']]
 
     transformed = transformed_pipeline.fit(X_train_t, np.ravel(y_train))
@@ -285,14 +285,10 @@ for train_index, test_index in kf1.split(adult_df):
                                                      'binned_capital-loss', 'binned_hours-per-week']].to_numpy()
     sensitive = (generate_binned_df(test_df)).loc[:, ['sex']].to_numpy()
 
-    rod_transformed = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_transformed), sensitive, contexts,
-                          protected='Female')
-    rod_capuchin = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_capuchin), sensitive, contexts,
-                          protected='Female')
-    rod_original = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_original), sensitive, contexts,
-                       protected='Female')
-    rod_dropped = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_dropped), sensitive, contexts,
-                       protected='Female')
+    rod_transformed = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_transformed), sensitive, contexts, protected='Female')
+    rod_capuchin = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_capuchin), sensitive, contexts, protected='Female')
+    rod_original = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_original), sensitive, contexts, protected='Female')
+    rod_dropped = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_dropped), sensitive, contexts, protected='Female')
 
     acc_transformed = accuracy_score(np.ravel(y_test), y_pred_transformed)
     f1_transformed = f1_score(np.ravel(y_test), y_pred_transformed)
