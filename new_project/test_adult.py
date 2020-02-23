@@ -11,6 +11,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from learn_markov_blanket import learn_MB
+from sklearn.model_selection import KFold
 import subprocess
 import sys
 sys.path.insert(0, '/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
@@ -21,6 +22,7 @@ home = str(Path.home())
 
 
 adult_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data'
+results_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/intermediate_results'
 
 adult_df = pd.read_csv(adult_path + '/adult.csv', sep=';', header=0)
 
@@ -174,94 +176,118 @@ cv_grid_capuchin = GridSearchCV(capuchin_pipeline, param_grid = {
     scoring='accuracy')
 
 ################################################
+count = 0
+method_list = []
+kf1 = KFold(n_splits=5, shuffle=True)
+for train_index, test_index in kf1.split(adult_df):
 
-X = adult_df.loc[:, ['workclass', 'education', 'sex', 'marital-status', 'occupation', 'age', 'capital-gain',
-                        'capital-loss', 'hours-per-week']]
+    train_df = adult_df.iloc[train_index]
+    test_df = adult_df.iloc[test_index]
 
-y = adult_df.loc[:, 'target']
+    X_train = train_df.loc[:, ['workclass', 'education', 'sex', 'marital-status', 'occupation', 'age', 'capital-gain',
+                            'capital-loss', 'hours-per-week']]
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+    y_train = train_df.loc[:, 'target']
 
-train_repaired = capuchin_repair_pipeline.fit_transform(pd.concat([X_train, y_train], axis=1))
-y_train_repaired = train_repaired.loc[:, ['target']].to_numpy()
-X_train_repaired = train_repaired.loc[:,
-                       ['workclass', 'education', 'occupation', 'sex', 'marital-status', 'binned_age', 'binned_capital-gain',
-                        'binned_capital-loss', 'binned_hours-per-week']]
-X_test_capuchin = (generate_binned_df(X_test)).loc[:,['workclass', 'education', 'occupation', 'sex', 'marital-status',
-                                                     'binned_age', 'binned_capital-gain',
-                                                    'binned_capital-loss', 'binned_hours-per-week']]
+    X_test = test_df.loc[:, ['workclass', 'education', 'sex', 'marital-status', 'occupation', 'age', 'capital-gain',
+                               'capital-loss', 'hours-per-week']]
 
-X_train_dropped = X_train.drop(columns=['sex', 'marital-status'])
-X_test_dropped = X_test.drop(columns=['sex', 'marital-status'])
+    y_test = test_df.loc[:, 'target']
 
-dropped = cv_grid_dropped.fit(X_train_dropped, np.ravel(y_train.to_numpy()))
-original = cv_grid_original.fit(X_train, np.ravel(y_train.to_numpy()))
-capuchin = cv_grid_capuchin.fit(X_train_repaired, np.ravel(y_train_repaired))
-#
-outcome_dropped = dropped.predict(X_test_dropped)
-y_pred_proba_dropped = dropped.predict_proba(X_test_dropped)[:, 1]
-outcome_original = original.predict(X_test)
-y_pred_proba_original = original.predict_proba(X_test)[:, 1]
-outcome_capuchin = capuchin.predict(X_test_capuchin)
-y_pred_proba_capuchin = capuchin.predict_proba(X_test_capuchin)[:, 1]
-#
-binned_X_test_dropped = generate_binned_df(X_test_dropped)
-# binned_X_test_dropped = X_test_dropped
-binned_X_test_dropped.loc[:, 'outcome'] = outcome_dropped
-binned_X_test_original = generate_binned_df(X_test)
-#binned_X_test_original = X_test
-binned_X_test_original.loc[:, 'outcome'] = outcome_original
-binned_X_test_capuchin = generate_binned_df(X_test)
-binned_X_test_capuchin.loc[:, 'outcome'] = outcome_capuchin
-#
+    train_repaired = capuchin_repair_pipeline.fit_transform(pd.concat([X_train, y_train], axis=1))
+    y_train_repaired = train_repaired.loc[:, ['target']].to_numpy()
+    X_train_repaired = train_repaired.loc[:,
+                           ['workclass', 'education', 'occupation', 'sex', 'marital-status', 'binned_age', 'binned_capital-gain',
+                            'binned_capital-loss', 'binned_hours-per-week']]
+    X_test_capuchin = (generate_binned_df(X_test)).loc[:,['workclass', 'education', 'occupation', 'sex', 'marital-status',
+                                                         'binned_age', 'binned_capital-gain',
+                                                        'binned_capital-loss', 'binned_hours-per-week']]
 
-mb_original = learn_MB(binned_X_test_original, 'original')
-mb_dropped = learn_MB(binned_X_test_dropped, 'dropped')
-mb_capuchin = learn_MB(binned_X_test_capuchin, 'capuchin')
+    X_train_dropped = X_train.drop(columns=['sex', 'marital-status'])
+    X_test_dropped = X_test.drop(columns=['sex', 'marital-status'])
 
-contexts_original = []
-for i in mb_original:
-    if i != sensitive_feature and i not in inadmissible_features:
-        contexts_original.extend([i])
-    else:
-        pass
+    dropped = cv_grid_dropped.fit(X_train_dropped, np.ravel(y_train.to_numpy()))
+    original = cv_grid_original.fit(X_train, np.ravel(y_train.to_numpy()))
+    capuchin = cv_grid_capuchin.fit(X_train_repaired, np.ravel(y_train_repaired))
+    #
+    outcome_dropped = dropped.predict(X_test_dropped)
+    y_pred_proba_dropped = dropped.predict_proba(X_test_dropped)[:, 1]
+    outcome_original = original.predict(X_test)
+    y_pred_proba_original = original.predict_proba(X_test)[:, 1]
+    outcome_capuchin = capuchin.predict(X_test_capuchin)
+    y_pred_proba_capuchin = capuchin.predict_proba(X_test_capuchin)[:, 1]
+    #
+    binned_X_test_dropped = generate_binned_df(X_test_dropped)
+    # binned_X_test_dropped = X_test_dropped
+    binned_X_test_dropped.loc[:, 'outcome'] = outcome_dropped
+    binned_X_test_original = generate_binned_df(X_test)
+    #binned_X_test_original = X_test
+    binned_X_test_original.loc[:, 'outcome'] = outcome_original
+    binned_X_test_capuchin = generate_binned_df(X_test)
+    binned_X_test_capuchin.loc[:, 'outcome'] = outcome_capuchin
+    #
 
-contexts_dropped = []
-for i in mb_dropped:
-    if i != sensitive_feature and i not in inadmissible_features:
-        contexts_dropped.extend([i])
-    else:
-        pass
+    mb_original = learn_MB(binned_X_test_original, 'original_' + str(count+1))
+    mb_dropped = learn_MB(binned_X_test_dropped, 'dropped_' + str(count+1))
+    mb_capuchin = learn_MB(binned_X_test_capuchin, 'capuchin_' + str(count+1))
 
-contexts_capuchin = []
-for i in mb_capuchin:
-    if i != sensitive_feature and i not in inadmissible_features:
-        contexts_capuchin.extend([i])
-    else:
-        pass
+    contexts_original = []
+    for i in mb_original:
+        if i != sensitive_feature and i not in inadmissible_features:
+            contexts_original.extend([i])
+        else:
+            pass
 
-sensitive = X_test.loc[:, ['sex']].to_numpy()
-#
-#
-rod_dropped = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_dropped), sensitive,
-                  binned_X_test_dropped.loc[:, contexts_dropped].to_numpy(), protected = ' Female')
-rod_original = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_original), sensitive,
-                   binned_X_test_original.loc[:, contexts_original].to_numpy(), protected = ' Female')
-rod_capuchin = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_capuchin), sensitive,
-                   binned_X_test_capuchin.loc[:, contexts_capuchin].to_numpy(), protected = ' Female')
+    contexts_dropped = []
+    for i in mb_dropped:
+        if i != sensitive_feature and i not in inadmissible_features:
+            contexts_dropped.extend([i])
+        else:
+            pass
 
-acc_dropped = accuracy_score(np.ravel(y_test), outcome_dropped)
-acc_original = accuracy_score(np.ravel(y_test), outcome_original)
-acc_capuchin = accuracy_score(np.ravel(y_test), outcome_capuchin)
-#
-print('ROD dropped: {:.4f}'.format(rod_dropped))
-print('ROD orginal: {:.4f}'.format(rod_original))
-print('ROD capuchin: {:.4f}'.format(rod_capuchin))
-print('ACC dropped: {:.4f}'.format(acc_dropped))
-print('ACC orginal: {:.4f}'.format(acc_original))
-print('ACC capuchin: {:.4f}'.format(acc_capuchin))
+    contexts_capuchin = []
+    for i in mb_capuchin:
+        if i != sensitive_feature and i not in inadmissible_features:
+            contexts_capuchin.extend([i])
+        else:
+            pass
 
+    sensitive = X_test.loc[:, ['sex']].to_numpy()
+    #
+    #
+    rod_dropped = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_dropped), sensitive,
+                      binned_X_test_dropped.loc[:, contexts_dropped].to_numpy(), protected = ' Female')
+    rod_original = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_original), sensitive,
+                       binned_X_test_original.loc[:, contexts_original].to_numpy(), protected = ' Female')
+    rod_capuchin = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_capuchin), sensitive,
+                       binned_X_test_capuchin.loc[:, contexts_capuchin].to_numpy(), protected = ' Female')
 
+    acc_dropped = accuracy_score(np.ravel(y_test), outcome_dropped)
+    acc_original = accuracy_score(np.ravel(y_test), outcome_original)
+    acc_capuchin = accuracy_score(np.ravel(y_test), outcome_capuchin)
+
+    method_list.extend([#'feature_construction', acc_transformed, f1_transformed, rod_transformed, count + 1],
+                        ['original', acc_original, rod_original, count + 1],
+                        ['dropped', acc_dropped, rod_dropped, count + 1],
+                        ['capuchin', acc_capuchin, rod_capuchin, count + 1]])
+    #
+
+    count += 1
+
+    print('Fold: {}'.format(count))
+    print('ROD dropped: {:.4f}'.format(rod_dropped))
+    print('ROD orginal: {:.4f}'.format(rod_original))
+    print('ROD capuchin: {:.4f}'.format(rod_capuchin))
+    print('ACC dropped: {:.4f}'.format(acc_dropped))
+    print('ACC orginal: {:.4f}'.format(acc_original))
+    print('ACC capuchin: {:.4f}'.format(acc_capuchin))
+
+summary_df = pd.DataFrame(method_list, columns=['Method', 'Accuracy', 'ROD', 'fold'])
+
+print(summary_df.groupby('Method')['Accuracy'].mean())
+print(summary_df.groupby('Method')['ROD'].mean())
+
+summary_df.to_csv(path_or_buf=results_path + '/summary_adult_rfACC_df.csv', index=False)
 
 #print(mb_original)
 #print(mb_dropped)

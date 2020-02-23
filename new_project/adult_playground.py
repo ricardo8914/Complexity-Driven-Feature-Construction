@@ -4,7 +4,7 @@ import numpy as np
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
 from sklearn.metrics import make_scorer
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score,f1_score
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
@@ -20,7 +20,7 @@ from methods.capuchin import repair_dataset
 
 home = str(Path.home())
 
-
+#data_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data'
 adult_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data'
 
 adult_df = pd.read_csv(adult_path + '/adult.csv', sep=';', header=0)
