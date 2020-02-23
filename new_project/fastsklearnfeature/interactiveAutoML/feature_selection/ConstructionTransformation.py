@@ -44,10 +44,13 @@ class ConstructionTransformer(BaseEstimator, TransformerMixin):
                     if not isinstance(r.transformation, MinusTransformation):
                         numeric_representations.append(r)
 
+
+        print('lenght numeric representations: ' + str(len(numeric_representations)))
+
         all_features = CandidateFeature(IdentityTransformation(-1), numeric_representations)
         all_standardized = CandidateFeature(MinMaxScalingTransformation(), [all_features])
 
-        self.pipeline_ = all_features.pipeline
+        self.pipeline_ = all_standardized.pipeline
         self.all_features_set = numeric_representations
 
         self.pipeline_.fit(X, y)

@@ -49,7 +49,7 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
                  c_max=4,
                  folds=10,
                  score=make_scorer(f1_score, average='micro'),
-                 max_seconds=1000,
+                 max_seconds=10000,
                  save_logs=True,
                  reader=None,
                  upload2openml=False,
@@ -474,21 +474,21 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
                             filtered_features.append(check_f)
                 return filtered_features
 
-            combinations_to_be_applied: List[CandidateFeature] = []
-            for p in partition:
-                lists_for_each_element: List[List[CandidateFeature]] = [[], []]
-                for element in range(2):
-                    if p[element] in cost_2_raw_features:
-                        lists_for_each_element[element].extend(cost_2_raw_features[p[element]])
-                    if p[element] in cost_2_unary_transformed:
-                        lists_for_each_element[element].extend(filter_minus(cost_2_unary_transformed[p[element]]))
-                    if p[element] in cost_2_binary_transformed:
-                        lists_for_each_element[element].extend(filter_minus(cost_2_binary_transformed[p[element]]))
-                    if p[element] in cost_2_combination:
-                        lists_for_each_element[element].extend(cost_2_combination[p[element]])
-
-                combinations_to_be_applied = self.generate_merge_for_combination(all_evaluated_features, lists_for_each_element[0], lists_for_each_element[1])
-            current_layer.extend(combinations_to_be_applied)
+            # combinations_to_be_applied: List[CandidateFeature] = []
+            # for p in partition:
+            #     lists_for_each_element: List[List[CandidateFeature]] = [[], []]
+            #     for element in range(2):
+            #         if p[element] in cost_2_raw_features:
+            #             lists_for_each_element[element].extend(cost_2_raw_features[p[element]])
+            #         if p[element] in cost_2_unary_transformed:
+            #             lists_for_each_element[element].extend(filter_minus(cost_2_unary_transformed[p[element]]))
+            #         if p[element] in cost_2_binary_transformed:
+            #             lists_for_each_element[element].extend(filter_minus(cost_2_binary_transformed[p[element]]))
+            #         if p[element] in cost_2_combination:
+            #             lists_for_each_element[element].extend(cost_2_combination[p[element]])
+            #
+            #     combinations_to_be_applied = self.generate_merge_for_combination(all_evaluated_features, lists_for_each_element[0], lists_for_each_element[1])
+            # current_layer.extend(combinations_to_be_applied)
 
 
 
