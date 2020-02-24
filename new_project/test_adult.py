@@ -1,4 +1,3 @@
-import sys
 import pandas as pd
 from pathlib import Path
 import numpy as np
@@ -8,14 +7,11 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from learn_markov_blanket import learn_MB
 from sklearn.model_selection import KFold
-import subprocess
+import ROD
 import sys
 sys.path.insert(0, '/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
-from measures.ROD import ROD
 from methods.capuchin import repair_dataset
 
 home = str(Path.home())
@@ -81,10 +77,10 @@ dropped_pipeline = Pipeline(steps=[('preprocessor', preprocessor_2),
                       ('clf', RandomForestClassifier())])
 
 cv_grid_dropped = GridSearchCV(dropped_pipeline, param_grid = {
-    'clf__n_estimators' : [150],
+    'clf__n_estimators' : [100],
     'clf__criterion' : ['gini', 'entropy'],
     'clf__class_weight' : [None, 'balanced'],
-    'clf__max_depth' : [None, 3, 5]#,
+    'clf__max_depth' : [None, 3, 5] #,
     #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
     },
     n_jobs=-1,
@@ -115,10 +111,10 @@ original_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
                       ('clf', RandomForestClassifier())])
 
 cv_grid_original = GridSearchCV(original_pipeline, param_grid = {
-    'clf__n_estimators' : [150],
+    'clf__n_estimators' : [100],
     'clf__criterion' : ['gini', 'entropy'],
     'clf__class_weight' : [None, 'balanced'],
-    'clf__max_depth' : [None, 3, 5]#,
+    'clf__max_depth' : [None, 3, 5] #,
     #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
     },
     n_jobs=-1,
@@ -181,6 +177,7 @@ method_list = []
 kf1 = KFold(n_splits=5, shuffle=True)
 for train_index, test_index in kf1.split(adult_df):
 
+    print('Start proccessing fold: {}'.format(count+1))
     train_df = adult_df.iloc[train_index]
     test_df = adult_df.iloc[test_index]
 
@@ -194,7 +191,9 @@ for train_index, test_index in kf1.split(adult_df):
 
     y_test = test_df.loc[:, 'target']
 
+    print('Start repairing training set with capuchin')
     train_repaired = capuchin_repair_pipeline.fit_transform(pd.concat([X_train, y_train], axis=1))
+    print('Finished repairing training set with capuchin')
     y_train_repaired = train_repaired.loc[:, ['target']].to_numpy()
     X_train_repaired = train_repaired.loc[:,
                            ['workclass', 'education', 'occupation', 'sex', 'marital-status', 'binned_age', 'binned_capital-gain',
@@ -206,9 +205,11 @@ for train_index, test_index in kf1.split(adult_df):
     X_train_dropped = X_train.drop(columns=['sex', 'marital-status'])
     X_test_dropped = X_test.drop(columns=['sex', 'marital-status'])
 
+    print('Training classifiers')
     dropped = cv_grid_dropped.fit(X_train_dropped, np.ravel(y_train.to_numpy()))
     original = cv_grid_original.fit(X_train, np.ravel(y_train.to_numpy()))
     capuchin = cv_grid_capuchin.fit(X_train_repaired, np.ravel(y_train_repaired))
+    print('Classifiers were trained')
     #
     outcome_dropped = dropped.predict(X_test_dropped)
     y_pred_proba_dropped = dropped.predict_proba(X_test_dropped)[:, 1]
@@ -217,50 +218,25 @@ for train_index, test_index in kf1.split(adult_df):
     outcome_capuchin = capuchin.predict(X_test_capuchin)
     y_pred_proba_capuchin = capuchin.predict_proba(X_test_capuchin)[:, 1]
     #
+
     binned_X_test_dropped = generate_binned_df(X_test_dropped)
-    # binned_X_test_dropped = X_test_dropped
-    binned_X_test_dropped.loc[:, 'outcome'] = outcome_dropped
+    binned_X_test_dropped.loc[:, 'outcome'] = y_pred_proba_dropped
+    binned_X_test_dropped.loc[:, 'sex'] = X_test.loc[:, ['sex']]
     binned_X_test_original = generate_binned_df(X_test)
-    #binned_X_test_original = X_test
-    binned_X_test_original.loc[:, 'outcome'] = outcome_original
+    binned_X_test_original.loc[:, 'outcome'] =y_pred_proba_original
     binned_X_test_capuchin = generate_binned_df(X_test)
-    binned_X_test_capuchin.loc[:, 'outcome'] = outcome_capuchin
+    binned_X_test_capuchin.loc[:, 'outcome'] = y_pred_proba_capuchin
     #
 
-    mb_original = learn_MB(binned_X_test_original, 'original_' + str(count+1))
-    mb_dropped = learn_MB(binned_X_test_dropped, 'dropped_' + str(count+1))
-    mb_capuchin = learn_MB(binned_X_test_capuchin, 'capuchin_' + str(count+1))
-
-    contexts_original = []
-    for i in mb_original:
-        if i != sensitive_feature and i not in inadmissible_features:
-            contexts_original.extend([i])
-        else:
-            pass
-
-    contexts_dropped = []
-    for i in mb_dropped:
-        if i != sensitive_feature and i not in inadmissible_features:
-            contexts_dropped.extend([i])
-        else:
-            pass
-
-    contexts_capuchin = []
-    for i in mb_capuchin:
-        if i != sensitive_feature and i not in inadmissible_features:
-            contexts_capuchin.extend([i])
-        else:
-            pass
-
-    sensitive = X_test.loc[:, ['sex']].to_numpy()
     #
     #
-    rod_dropped = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_dropped), sensitive,
-                      binned_X_test_dropped.loc[:, contexts_dropped].to_numpy(), protected = ' Female')
-    rod_original = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_original), sensitive,
-                       binned_X_test_original.loc[:, contexts_original].to_numpy(), protected = ' Female')
-    rod_capuchin = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_capuchin), sensitive,
-                       binned_X_test_capuchin.loc[:, contexts_capuchin].to_numpy(), protected = ' Female')
+
+    rod_dropped = ROD.ROD(y_pred=binned_X_test_dropped, sensitive='sex', inadmissible=inadmissible_features, protected=' Female',
+                  name='dropped_adult')
+    rod_original = ROD.ROD(y_pred=binned_X_test_original, sensitive='sex', inadmissible=inadmissible_features, protected=' Female',
+                  name='original_adult')
+    rod_capuchin = ROD.ROD(y_pred=binned_X_test_capuchin, sensitive='sex', inadmissible=inadmissible_features, protected=' Female',
+                  name='capuchin_adult')
 
     acc_dropped = accuracy_score(np.ravel(y_test), outcome_dropped)
     acc_original = accuracy_score(np.ravel(y_test), outcome_original)
@@ -270,7 +246,7 @@ for train_index, test_index in kf1.split(adult_df):
                         ['original', acc_original, rod_original, count + 1],
                         ['dropped', acc_dropped, rod_dropped, count + 1],
                         ['capuchin', acc_capuchin, rod_capuchin, count + 1]])
-    #
+
 
     count += 1
 

@@ -8,7 +8,7 @@ home = str(Path.home())
 
 results_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/intermediate_results'
 
-results = pd.read_csv(results_path + '/summary_rf500F1_df.csv')
+results = pd.read_csv(results_path + '/summary_adult_rfACC_df.csv')
 
 array = results['ROD'].to_numpy()
 transformer = Normalizer().fit_transform(array.reshape(1, -1))
@@ -25,14 +25,14 @@ results = pd.merge(results, mean_ROD, left_on='Method', right_on='Method', how='
 print(results.groupby('Method')['Accuracy'].mean())
 print(results.groupby('Method')['ROD'].mean())
 
-my_pal = {"capuchin": "g", "dropped": "b", "feature_construction":"m", "original":"lightskyblue"}
+my_pal = {"capuchin": "g", "dropped": "b", "original":"lightskyblue"}
 
-sns.boxplot(y='F1', x='ROD',
+sns.boxplot(y='Accuracy', x='ROD',
                  data=results,
                  palette=my_pal,
                  hue='Method')
 
-plt.legend(loc='upper right')
+plt.legend(loc='lower right')
 plt.show()
 
 # COMPAS_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/compas-analysis'
