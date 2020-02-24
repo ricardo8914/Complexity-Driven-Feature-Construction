@@ -14,10 +14,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
 from fastsklearnfeature.configuration import Config
-import sys
-sys.path.insert(0,'/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
-from measures.ROD import ROD
-from methods.capuchin import repair_dataset
+import ROD
 
 home = str(Path.home())
 
@@ -35,6 +32,20 @@ def label(row):
       return 0
    else:
        return 1
+
+def generate_binned_df(df):
+    columns2_drop = []
+    df_ = df.copy()
+    for i in list(df_):
+        if i not in ['target', 'outcome'] and (df_[i].dtype != np.dtype('O') and len(df_[i].unique()) > 4):
+
+            out, bins = pd.cut(df_[i], bins=4, retbins=True)
+            df_.loc[:, 'binned_' + i] = out.astype(str)
+            columns2_drop.extend([i])
+
+    df_.drop(columns=columns2_drop, inplace=True)
+
+    return df_
 
 sensitive_feature = 'sex'
 inadmissible_features = ['marital-status']
@@ -103,14 +114,18 @@ transformed_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
 
 #########################################
 
-X = adult_df.loc[:, features2_build].to_numpy()
+X = adult_df.loc[:, ['workclass', 'education', 'sex', 'marital-status', 'occupation', 'age', 'capital-gain',
+                            'capital-loss', 'hours-per-week']]
 y = adult_df.loc[:, 'target'].to_numpy()
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33)
 
-transformed_train = transformed_pipeline.fit_transform(X_train, np.ravel(y_train))
+X_train_t = X_train.loc[:, features2_build].to_numpy()
+X_test_t = X_test.loc[:, features2_build].to_numpy()
+
+transformed_train = transformed_pipeline.fit_transform(X_train_t, np.ravel(y_train))
 all_transformations = transformed_pipeline.named_steps['feature_construction'].named_steps['new_construction'].all_features_set
-transformed_test = transformed_pipeline.transform(X_test)
+transformed_test = transformed_pipeline.transform(X_test_t)
 
 print(len(all_transformations))
 print(transformed_train.shape, transformed_test.shape)
@@ -125,10 +140,13 @@ print(result.importances_mean)
 sorted_idx = result.importances_mean.argsort()
 print(sorted_idx)
 
-best_10 = [all_transformations[i] for i in sorted_idx][-20:]
-best_10_idx = sorted_idx[-20:]
+inadmissible_features.extend([sensitive_feature])
+admissible = [item for item in list(X_test) if item not in inadmissible_features]
+
+best_10 = [all_transformations[i] for i in sorted_idx][-10:]
+best_10_idx = sorted_idx[-10:]
 #print(best_10_idx)
-X_test_trunc = transformed_test[:,best_10_idx]
+
 
 cv_grid_transformed = GridSearchCV(RandomForestClassifier(), param_grid = {
     'n_estimators' : [100], #,
@@ -141,16 +159,38 @@ cv_grid_transformed = GridSearchCV(RandomForestClassifier(), param_grid = {
     n_jobs=-1,
     scoring='accuracy')
 
-X_train_test, X_test_test, y_train_test, y_test_test = train_test_split(X_test_trunc, y_test, test_size=0.33)
+X_train_test, X_test_test, y_train_test, y_test_test = train_test_split(X_test, y_test, test_size=0.33)
 
-cv_grid_transformed.fit(X_train_test, np.ravel(y_train_test))
+X_train_test_t = X_train_test.loc[:, features2_build].to_numpy()
+X_test_test_t = X_test_test.loc[:, features2_build].to_numpy()
+transformed_train_test = transformed_pipeline.transform(X_train_test_t)
+transformed_test_test = transformed_pipeline.transform(X_test_test_t)
+X_train_test_trunc = transformed_train_test[:, best_10_idx]
+X_test_test_trunc = transformed_test_test[:, best_10_idx]
 
-y_pred = cv_grid_transformed.predict(X_test_test)
+cv_grid_transformed.fit(X_train_test_trunc, np.ravel(y_train_test))
+
+y_pred = cv_grid_transformed.predict(X_test_test_trunc)
+y_pred_proba = cv_grid_transformed.predict_proba(X_test_test_trunc)
+
+columns2_df = []
+for i in best_10:
+    j = (i.get_name()).strip()
+    columns2_df.extend([j])
+
+df = pd.DataFrame(X_test_test_trunc, columns=columns2_df)
+df.loc[:, 'outcome'] = y_pred_proba
+df.loc[:, sensitive_feature] = X_test_test.loc[:, sensitive_feature]
+
+df_binned = generate_binned_df(df)
+rod = ROD.ROD(y_pred=df_binned, sensitive='sex', inadmissible=inadmissible_features, protected=' Female', name='feature_construction')
+
 
 acc = accuracy_score(np.ravel(y_test_test), y_pred)
 
 print('Accuracy for model: {}'.format(best_10))
 print('{:.4f}'.format(acc))
+print('ROD for model: {:.4f}'.format(rod))
 
 
 # fig, ax = plt.subplots()
