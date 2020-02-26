@@ -83,8 +83,6 @@ preprocessor = ColumnTransformer(
     transformers=[
         ('num', numerical_transformer, features2_scale)], remainder='passthrough')
 
-#print(preprocessor.fit_transform(adult_df.loc[:, features2_build].to_numpy())[0])
-
 new_order = features2_build_num + features2_build_cat
 features2_build_mask = ([False] * len(features2_build_num)) + ([True] * len(features2_build_cat))
 
@@ -98,7 +96,7 @@ column_transformation = Pipeline([('new_construction', ConstructionTransformer(c
                                                     feature_is_categorical=features2_build_mask))])
 
 cv_grid_transformed_train = GridSearchCV(RandomForestClassifier(), param_grid = {
-    'n_estimators' : [250],#,
+    'n_estimators' : [100],#,
     'criterion' : ['gini', 'entropy'],
     'class_weight' : [None, 'balanced'],
     'max_depth' : [None, 3, 5],#,
@@ -127,21 +125,22 @@ transformed_train = transformed_pipeline.fit_transform(X_train_t, np.ravel(y_tra
 all_transformations = transformed_pipeline.named_steps['feature_construction'].named_steps['new_construction'].all_features_set
 transformed_test = transformed_pipeline.transform(X_test_t)
 
-print(len(all_transformations))
-print(transformed_train.shape, transformed_test.shape)
+transformed_columns = []
+for i in all_transformations:
+    j = (i.get_name()).strip()
+    transformed_columns.extend([j])
 
-#rf = RandomForestClassifier(n_estimators=250, n_jobs=-1)
+admissible = pd.DataFrame(transformed_train, columns=transformed_columns)
+
 cv_grid_transformed_train.fit(transformed_train, np.ravel(y_train))
 
+fair_train = make_scorer(ROD.ROD, greater_is_better=False, needs_proba=True,
+                         sensitive=X_train.loc[:, ['sex']], admissible=admissible,
+                         protected=' Female', name='feature_construction_adult')
+
 result = permutation_importance(cv_grid_transformed_train, transformed_train, np.ravel(y_train), n_repeats=5, scoring='accuracy', n_jobs=-1)
-#trunc_result = result.importances_mean[:len(all_transformations)]
 
-print(result.importances_mean)
 sorted_idx = result.importances_mean.argsort()
-print(sorted_idx)
-
-inadmissible_features.extend([sensitive_feature])
-admissible = [item for item in list(X_test) if item not in inadmissible_features]
 
 best_10 = [all_transformations[i] for i in sorted_idx][-10:]
 best_10_idx = sorted_idx[-10:]
@@ -171,7 +170,7 @@ X_test_test_trunc = transformed_test_test[:, best_10_idx]
 cv_grid_transformed.fit(X_train_test_trunc, np.ravel(y_train_test))
 
 y_pred = cv_grid_transformed.predict(X_test_test_trunc)
-y_pred_proba = cv_grid_transformed.predict_proba(X_test_test_trunc)
+y_pred_proba = cv_grid_transformed.predict_proba(X_test_test_trunc)[:, 1]
 
 columns2_df = []
 for i in best_10:
@@ -179,12 +178,9 @@ for i in best_10:
     columns2_df.extend([j])
 
 df = pd.DataFrame(X_test_test_trunc, columns=columns2_df)
-df.loc[:, 'outcome'] = y_pred_proba
-df.loc[:, sensitive_feature] = X_test_test.loc[:, sensitive_feature]
 
-df_binned = generate_binned_df(df)
-rod = ROD.ROD(y_pred=df_binned, sensitive='sex', inadmissible=inadmissible_features, protected=' Female', name='feature_construction')
-
+rod = ROD.ROD(y_pred=y_pred_proba, sensitive=X_test_test.loc[:, ['sex']], admissible = df,
+                      protected=' Female', name='feature_construction_adult')
 
 acc = accuracy_score(np.ravel(y_test_test), y_pred)
 
