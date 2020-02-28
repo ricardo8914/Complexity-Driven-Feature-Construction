@@ -46,7 +46,7 @@ def generate_binned_df(df):
     for i in list(df_):
         if i not in ['target', 'outcome'] and (df_[i].dtype != np.dtype('O') and len(df_[i].unique()) > 4):
 
-            out, bins = pd.qcut(df_[i], q=4, retbins=True, duplicates='drop')
+            out, bins = pd.cut(df_[i], bins=4, retbins=True)
             df_.loc[:, i] = out.astype(str)
 
     return df_
@@ -80,10 +80,10 @@ dropped_pipeline = Pipeline(steps=[('preprocessor', preprocessor_2),
                       ('clf', RandomForestClassifier())])
 
 cv_grid_dropped = GridSearchCV(dropped_pipeline, param_grid = {
-    'clf__n_estimators' : [100]#,
-    #'clf__criterion' : ['gini', 'entropy'],
-    #'clf__class_weight' : [None, 'balanced'],
-    #'clf__max_depth' : [None, 3, 5] #,
+    'clf__n_estimators' : [100],
+    'clf__criterion' : ['gini', 'entropy'],
+    'clf__class_weight' : [None, 'balanced'],
+    'clf__max_depth' : [None, 3, 5] #,
     #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
     },
     n_jobs=-1,
@@ -114,10 +114,10 @@ original_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
                       ('clf', RandomForestClassifier())])
 
 cv_grid_original = GridSearchCV(original_pipeline, param_grid = {
-    'clf__n_estimators' : [100]#,
-    #'clf__criterion' : ['gini', 'entropy'],
-    #'clf__class_weight' : [None, 'balanced'],
-    #'clf__max_depth' : [None, 3, 5] #,
+    'clf__n_estimators' : [100],
+    'clf__criterion' : ['gini', 'entropy'],
+    'clf__class_weight' : [None, 'balanced'],
+    'clf__max_depth' : [None, 3, 5] ,
     #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
     },
     n_jobs=-1,
@@ -159,10 +159,10 @@ capuchin_pipeline = Pipeline(steps=[('preprocessor', preprocessor_3),
 
 
 cv_grid_capuchin = GridSearchCV(capuchin_pipeline, param_grid = {
-    'clf__n_estimators' : [100]#,
-    #'clf__criterion' : ['gini', 'entropy'],
-    #'clf__class_weight' : [None, 'balanced'],
-    #'clf__max_depth' : [None, 3, 5]#,
+    'clf__n_estimators' : [100],
+    'clf__criterion' : ['gini', 'entropy'],
+    'clf__class_weight' : [None, 'balanced'],
+    'clf__max_depth' : [None, 3, 5]#,
     #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
     },
     n_jobs=-1,
@@ -217,13 +217,13 @@ transformed_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
                                 #('clf', RandomForestClassifier())])
                                 #('clf', cv_grid_transformed)])
 
-transformed_classifier = RandomForestClassifier(n_estimators=250, max_features=1.0 ,n_jobs=-1)
+transformed_classifier = RandomForestClassifier(n_estimators=250, max_features=1.0 ,n_jobs=4)
 
 cv_grid_transformed = GridSearchCV(RandomForestClassifier(), param_grid = {
     'n_estimators' : [250],#,
-    #'criterion' : ['gini', 'entropy'],
-    #'class_weight' : [None, 'balanced'],
-    #'max_depth' : [None, 3, 5],#,
+    'criterion' : ['gini', 'entropy'],
+    'class_weight' : [None, 'balanced'],
+    'max_depth' : [None, 3, 5],#,
     'max_features' : [1.0]
     },
     n_jobs=-1,
@@ -261,7 +261,7 @@ for train_index, test_index in kf1.split(adult_df):
     transformed_train = transformed_pipeline.fit_transform(X_train_t_1, np.ravel(y_train_t_1))
     all_transformations = transformed_pipeline.named_steps['feature_construction'].named_steps[
         'new_construction'].all_features_set
-    transformed_test = transformed_pipeline.transform(X_test)
+    transformed_test = transformed_pipeline.transform(X_test_t)
 
     transformed_columns = []
     for i in all_transformations:
@@ -285,28 +285,36 @@ for train_index, test_index in kf1.split(adult_df):
     X_test_dropped = X_test.drop(columns=['sex', 'marital-status'])
 
     print('Training classifiers')
-    dropped = dropped_pipeline.fit(X_train_dropped, np.ravel(y_train.to_numpy()))
-    original = original_pipeline.fit(X_train, np.ravel(y_train.to_numpy()))
-    capuchin = capuchin_pipeline.fit(X_train_repaired, np.ravel(y_train_repaired))
+    dropped = cv_grid_dropped.fit(X_train_dropped, np.ravel(y_train.to_numpy()))
+    original = cv_grid_original.fit(X_train, np.ravel(y_train.to_numpy()))
+    capuchin = cv_grid_capuchin.fit(X_train_repaired, np.ravel(y_train_repaired))
     print('start training feature construction training set')
-    feature_construction_1 = transformed_classifier.fit(transformed_train, np.ravel(y_train_t_1))
+    # feature_construction_1 = cv_grid_transformed.fit(transformed_train, np.ravel(y_train_t_1))
+    #
+    # result = permutation_importance(feature_construction_1, transformed_train, np.ravel(y_train_t_1), n_repeats=5,
+    #                                 scoring='accuracy', n_jobs=-1)
+    #
+    # sorted_idx = result.importances_mean.argsort()
+    #
+    # best = [all_transformations[i] for i in sorted_idx][-10:]
+    # best_idx = sorted_idx[-10:]
 
-    result = permutation_importance(feature_construction_1, transformed_train, np.ravel(y_train_t_1), n_repeats=5,
-                                    scoring='accuracy', n_jobs=-1)
-
-    sorted_idx = result.importances_mean.argsort()
-
-    best = [all_transformations[i] for i in sorted_idx][-5:]
-    best_idx = sorted_idx[-5:]
-
-    trunc_clf = RandomForestClassifier()
-
-    transformed_test_test = transformed_pipeline.transform(X_test_t_1)
-    X_train_test_trunc = transformed_test_test[:, best_idx]
-
-    feature_construction = trunc_clf.fit(X_train_test_trunc, np.ravel(y_test_t_1))
-
-    transformed_test_trunc = transformed_test[:, best_idx]
+    # trunc_clf  = GridSearchCV(RandomForestClassifier(), param_grid = {
+    # 'n_estimators' : [100],
+    # 'criterion' : ['gini', 'entropy'],
+    # 'class_weight' : [None, 'balanced'],
+    # 'max_depth' : [None, 3, 5]#,
+    # #'clf__ccp_alpha' : [0.0, 0.5, 1.0]
+    # },
+    # n_jobs=-1,
+    # scoring='accuracy')
+    #
+    # transformed_test_test = transformed_pipeline.transform(X_test_t_1)
+    # X_train_test_trunc = transformed_test_test[:, best_idx]
+    #
+    # feature_construction = trunc_clf.fit(X_train_test_trunc, np.ravel(y_test_t_1))
+    #
+    # transformed_test_trunc = transformed_test[:, best_idx]
 
 
     print('Classifiers were trained')
@@ -317,11 +325,16 @@ for train_index, test_index in kf1.split(adult_df):
     y_pred_proba_original = original.predict_proba(X_test)[:, 1]
     outcome_capuchin = capuchin.predict(X_test_capuchin)
     y_pred_proba_capuchin = capuchin.predict_proba(X_test_capuchin)[:, 1]
-    outcome_transformed = feature_construction.predict(transformed_test_trunc)
-    y_pred_proba_transformed = feature_construction.predict_proba(transformed_test_trunc)[:, 1]
+    #outcome_transformed = feature_construction.predict(transformed_test_trunc)
+    #y_pred_proba_transformed = feature_construction.predict_proba(transformed_test_trunc)[:, 1]
 
     admissible_df = X_test_dropped
-    admissible_feature_construction = pd.DataFrame(transformed_test_trunc, columns=best)
+
+    # columns2_df = []
+    # for i in best:
+    #     j = (i.get_name()).strip()
+    #     columns2_df.extend([j])
+    # admissible_feature_construction = pd.DataFrame(transformed_test_trunc, columns=columns2_df)
 
     rod_dropped = ROD.ROD(y_pred=y_pred_proba_dropped, sensitive=X_test.loc[:, ['sex']], admissible = admissible_df,
                       protected=' Female', name='dropped_adult')
@@ -330,19 +343,18 @@ for train_index, test_index in kf1.split(adult_df):
     rod_capuchin = ROD.ROD(y_pred=y_pred_proba_capuchin, sensitive=X_test.loc[:, ['sex']], admissible = admissible_df,
                       protected=' Female',
                       name='capuchin_adult')
-    rod_transformed = ROD.ROD(y_pred=y_pred_proba_transformed, sensitive=X_test.loc[:, ['sex']], admissible=admissible_feature_construction,
-                  protected=' Female', name='feature_construction_adult')
+    #rod_transformed = ROD.ROD(y_pred=y_pred_proba_transformed, sensitive=X_test.loc[:, ['sex']], admissible=admissible_feature_construction,
+    #              protected=' Female', name='feature_construction_adult')
 
     acc_dropped = accuracy_score(np.ravel(y_test), outcome_dropped)
     acc_original = accuracy_score(np.ravel(y_test), outcome_original)
     acc_capuchin = accuracy_score(np.ravel(y_test), outcome_capuchin)
-    acc_transformed = accuracy_score(np.ravel(y_test), outcome_transformed)
+    #acc_transformed = accuracy_score(np.ravel(y_test), outcome_transformed)
 
-    method_list.extend([['feature_construction', acc_transformed, rod_transformed, count + 1],
-                        ['original', acc_original, rod_original, count + 1],
-                        ['dropped', acc_dropped, rod_dropped, count + 1],
-                        ['capuchin', acc_capuchin, rod_capuchin, count + 1]])
-
+    # method_list.extend([['feature_construction', acc_transformed, rod_transformed, count + 1],
+    #                     ['original', acc_original, rod_original, count + 1],
+    #                     ['dropped', acc_dropped, rod_dropped, count + 1],
+    #                     ['capuchin', acc_capuchin, rod_capuchin, count + 1]])
 
     count += 1
 
@@ -350,18 +362,18 @@ for train_index, test_index in kf1.split(adult_df):
     print('ROD dropped: {:.4f}'.format(rod_dropped))
     print('ROD orginal: {:.4f}'.format(rod_original))
     print('ROD capuchin: {:.4f}'.format(rod_capuchin))
-    print('ROD transformed: {:.4f}'.format(rod_transformed))
+   # print('ROD transformed: {:.4f}'.format(rod_transformed))
     print('ACC dropped: {:.4f}'.format(acc_dropped))
     print('ACC orginal: {:.4f}'.format(acc_original))
     print('ACC capuchin: {:.4f}'.format(acc_capuchin))
-    print('ACC transformed: {:.4f}'.format(acc_transformed))
+   # print('ACC transformed: {:.4f}'.format(acc_transformed))
 
-summary_df = pd.DataFrame(method_list, columns=['Method', 'Accuracy', 'ROD', 'fold'])
+#summary_df = pd.DataFrame(method_list, columns=['Method', 'Accuracy', 'ROD', 'fold'])
 
-print(summary_df.groupby('Method')['Accuracy'].mean())
-print(summary_df.groupby('Method')['ROD'].mean())
+#print(summary_df.groupby('Method')['Accuracy'].mean())
+#print(summary_df.groupby('Method')['ROD'].mean())
 
-summary_df.to_csv(path_or_buf=results_path + '/summary_adult_rfACC_df.csv', index=False)
+#summary_df.to_csv(path_or_buf=results_path + '/summary_adult_rfACC_df.csv', index=False)
 
 #print(mb_original)
 #print(mb_dropped)
