@@ -64,19 +64,61 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
 
     protected = np.asarray(protected)
     unique_contexts = np.array(list(set([tuple(x) for x in contexts])))
-    contexts = np.array(list([tuple(x) for x in contexts]))
-    ROD = []
-    weights = []
-    for z in unique_contexts:
 
-        test_c = np.char.equal(contexts, z)
-        ids = np.argwhere(np.all(test_c, axis=1))
+    mb_empty = False
+    if len(mb) > 0:
+        contexts = np.array(list([tuple(x) for x in contexts]))
+    else:
+        mb_empty = True
 
+    if mb_empty == False:
+        ROD = []
+        weights = []
+        for z in unique_contexts:
+
+            test_c = np.char.equal(contexts, z)
+            ids = np.argwhere(np.all(test_c, axis=1))
+
+            test_s = np.not_equal(sensitive_data.to_numpy(), protected)
+            s_ids = np.argwhere(test_s)
+            cs_ids = np.intersect1d(ids, s_ids)
+            if cs_ids.shape[0] > 0:
+                p_1_0 = np.mean(np.ravel(outcome_array[cs_ids]))
+                p_0_0 = float(1 - p_1_0)
+            else:
+                p_1_0 = 0.5
+                p_0_0 = 0.5
+
+            test_ns = np.equal(sensitive_data.to_numpy(), protected)
+            ns_ids = np.argwhere(test_ns)
+            cns_ids = np.intersect1d(ids, ns_ids)
+            if cns_ids.shape[0] > 0:
+                p_1_1 = np.mean(np.ravel(outcome_array[cns_ids]))
+                p_0_1 = float(1 - p_1_1)
+            else:
+                p_1_1 = 0.5
+                p_0_1 = 0.5
+
+            if cs_ids.shape[0] > 0 and cns_ids.shape[0] > 0:
+                try:
+                    OR = (p_1_0 / p_0_0) * (p_0_1 / p_1_1)
+
+                    if np.isinf(OR) == False and np.isnan(OR) == False:
+                        ROD.extend([OR])
+                        weights.extend([ids.shape[0] / contexts.shape[0]])
+                    else:
+                        pass
+                except ZeroDivisionError:
+                    pass
+            else:
+                pass
+
+        result = abs(np.dot(np.squeeze(ROD), weights) - 1)
+    else:
         test_s = np.not_equal(sensitive_data.to_numpy(), protected)
         s_ids = np.argwhere(test_s)
-        cs_ids = np.intersect1d(ids, s_ids)
-        if cs_ids.shape[0] > 0:
-            p_1_0 = np.mean(np.ravel(outcome_array[cs_ids]))
+        if s_ids.shape[0] > 0:
+            p_1_0 = np.mean(np.ravel(outcome_array[s_ids]))
             p_0_0 = float(1 - p_1_0)
         else:
             p_1_0 = 0.5
@@ -84,29 +126,26 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
 
         test_ns = np.equal(sensitive_data.to_numpy(), protected)
         ns_ids = np.argwhere(test_ns)
-        cns_ids = np.intersect1d(ids, ns_ids)
-        if cns_ids.shape[0] > 0:
-            p_1_1 = np.mean(np.ravel(outcome_array[cns_ids]))
+
+        if ns_ids.shape[0] > 0:
+            p_1_1 = np.mean(np.ravel(outcome_array[ns_ids]))
             p_0_1 = float(1 - p_1_1)
         else:
             p_1_1 = 0.5
             p_0_1 = 0.5
 
-        if cs_ids.shape[0] > 0 and cns_ids.shape[0] > 0:
+        if s_ids.shape[0] > 0 and ns_ids.shape[0] > 0:
             try:
                 OR = (p_1_0 / p_0_0) * (p_0_1 / p_1_1)
 
                 if np.isinf(OR) == False and np.isnan(OR) == False:
-                    ROD.extend([OR])
-                    weights.extend([ids.shape[0] / contexts.shape[0]])
+                    result = abs(OR - 1)
                 else:
                     pass
             except ZeroDivisionError:
                 pass
         else:
             pass
-
-    result = abs(np.dot(np.squeeze(ROD), weights) - 1)
 
     return result
 
