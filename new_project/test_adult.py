@@ -14,6 +14,7 @@ from sklearn.metrics import make_scorer
 from sklearn.linear_model import LogisticRegression
 from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
+from fastsklearnfeature.interactiveAutoML.fair_measure import true_positive_rate_score
 import ROD
 import sys
 sys.path.insert(0, '/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
@@ -254,7 +255,7 @@ for train_index, test_index in kf1.split(adult_df):
     transformed_train = transformed_pipeline.fit_transform(X_train_t_1, np.ravel(y_train_t_1))
     all_transformations = transformed_pipeline.named_steps['feature_construction'].named_steps[
         'new_construction'].all_features_set
-    transformed_test = transformed_pipeline.transform(X_test)
+    transformed_test = transformed_pipeline.transform(X_test_t)
 
     transformed_columns = []
     for i in all_transformations:
@@ -330,15 +331,24 @@ for train_index, test_index in kf1.split(adult_df):
     rod_transformed = ROD.ROD(y_pred=y_pred_proba_transformed, sensitive=X_test.loc[:, ['sex']], admissible=admissible_feature_construction,
                   protected=' Female', name='feature_construction_adult')
 
+    tpr_dropped = true_positive_rate_score(pd.DataFrame(y_test), outcome_dropped, sensitive_data=X_test.loc[:, ['sex']].to_numpy())
+    tpr_original = true_positive_rate_score(pd.DataFrame(y_test), outcome_original,
+                                           sensitive_data=X_test.loc[:, ['sex']].to_numpy())
+    tpr_capuchin = true_positive_rate_score(pd.DataFrame(y_test), outcome_capuchin,
+                                           sensitive_data=X_test.loc[:, ['sex']].to_numpy())
+    tpr_transformed = true_positive_rate_score(pd.DataFrame(y_test), outcome_transformed,
+                                           sensitive_data=X_test.loc[:, ['sex']].to_numpy())
+
+
     acc_dropped = accuracy_score(np.ravel(y_test), outcome_dropped)
     acc_original = accuracy_score(np.ravel(y_test), outcome_original)
     acc_capuchin = accuracy_score(np.ravel(y_test), outcome_capuchin)
     acc_transformed = accuracy_score(np.ravel(y_test), outcome_transformed)
 
-    method_list.extend([['feature_construction', acc_transformed, rod_transformed, count + 1],
-                        ['original', acc_original, rod_original, count + 1],
-                        ['dropped', acc_dropped, rod_dropped, count + 1],
-                        ['capuchin', acc_capuchin, rod_capuchin, count + 1]])
+    method_list.extend([['feature_construction', acc_transformed, rod_transformed, tpr_transformed, count + 1],
+                        ['original', acc_original, rod_original, tpr_original, count + 1],
+                        ['dropped', acc_dropped, rod_dropped, tpr_dropped, count + 1],
+                        ['capuchin', acc_capuchin, rod_capuchin, tpr_capuchin, count + 1]])
 
     count += 1
 
@@ -347,15 +357,23 @@ for train_index, test_index in kf1.split(adult_df):
     print('ROD orginal: {:.4f}'.format(rod_original))
     print('ROD capuchin: {:.4f}'.format(rod_capuchin))
     print('ROD transformed: {:.4f}'.format(rod_transformed))
+    print('_______')
+    print('TPR dropped: {:.4f}'.format(tpr_dropped))
+    print('TPR orginal: {:.4f}'.format(tpr_original))
+    print('TPR capuchin: {:.4f}'.format(tpr_capuchin))
+    print('TPR transformed: {:.4f}'.format(tpr_transformed))
+    print('_______')
     print('ACC dropped: {:.4f}'.format(acc_dropped))
     print('ACC orginal: {:.4f}'.format(acc_original))
     print('ACC capuchin: {:.4f}'.format(acc_capuchin))
     print('ACC transformed: {:.4f}'.format(acc_transformed))
+    print('_______')
 
-summary_df = pd.DataFrame(method_list, columns=['Method', 'Accuracy', 'ROD', 'fold'])
+summary_df = pd.DataFrame(method_list, columns=['Method', 'Accuracy', 'ROD', 'TPR', 'Fold'])
 
 print(summary_df.groupby('Method')['Accuracy'].mean())
 print(summary_df.groupby('Method')['ROD'].mean())
+print(summary_df.groupby('Method')['TPR'].mean())
 
 summary_df.to_csv(path_or_buf=results_path + '/summary_adult_rfACC_df.csv', index=False)
 
