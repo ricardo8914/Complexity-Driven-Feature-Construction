@@ -1,9 +1,16 @@
 import numpy as np
+import pandas as pd
 from sklearn.metrics import confusion_matrix
 
 # Equality of Opportunity
 #https://towardsdatascience.com/a-tutorial-on-fairness-in-machine-learning-3ff8ba1040cb
 def true_positive_rate_score(y_true, y_pred, sensitive_data, labels =[False, True]):
+
+	if not isinstance(y_true, pd.DataFrame):
+		y_true = pd.DataFrame(y_true)
+	else:
+		pass
+
 	ids = [[],[]]
 
 	flat_y_true = y_true.values.flatten()
@@ -11,7 +18,7 @@ def true_positive_rate_score(y_true, y_pred, sensitive_data, labels =[False, Tru
 	sensitive_values = list(np.unique(sensitive_data))
 
 	for i in range(len(sensitive_values)):
-		ids[i] = np.where(sensitive_data[y_true.index.values] == sensitive_values[i])[0]
+		ids[i] = np.where(sensitive_data.iloc[y_true.index.values] == sensitive_values[i])[0]
 
 		tp = -1
 		if len(ids[i]) == 0:
