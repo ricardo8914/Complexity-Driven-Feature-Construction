@@ -36,7 +36,7 @@ def learn_MB(df=None, name=None, tmp_path=tmp_folder):
     os.remove(tmp_folder + '/' + name + str(r) + '.txt')
 
 
-    print('Markov blanket for ' + name + ' : {}'.format(mb))
+    #print('Markov blanket for ' + name + ' : {}'.format(mb))
     return mb
 
 def generate_binned_df(df):
@@ -124,7 +124,7 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
             except ZeroDivisionError:
                 pass
 
-        result = abs(np.dot(np.squeeze(ROD), weights) - 1)
+        result = abs(np.dot(np.squeeze(ROD), weights) - 1) * -1
     else:
         test_s = np.not_equal(sensitive_data.to_numpy(), protected)
         s_ids = np.argwhere(test_s)
@@ -150,13 +150,13 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
             OR = (p_1_0 / p_0_0) * (p_0_1 / p_1_1)
 
             if np.isinf(OR) == False and np.isnan(OR) == False:
-                result = abs(OR - 1)
+                result = abs(OR - 1) * -1
             else:
                 pass
         except ZeroDivisionError:
             pass
 
-
+    #print('ROD: {:.4f}'.format(result))
     return result
 
 
