@@ -19,7 +19,7 @@ from sklearn.model_selection import cross_val_score
 import sys
 from pathlib import Path
 sys.path.insert(0,'/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
-from measures.ROD import ROD
+from ROD import ROD
 from measures.logROD import LROD
 from methods.capuchin import repair_dataset
 home = str(Path.home())
@@ -38,7 +38,7 @@ cost_2_dropped_evaluated_candidates: Dict[int, List[CandidateFeature]] = pickle.
 
 acc = make_scorer(accuracy_score, greater_is_better=True, needs_threshold=False)
 f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
-my_pipeline = Pipeline([('new_construction', ConstructionTransformer(c_max=5, scoring=acc, n_jobs=4, model=LogisticRegression(),
+my_pipeline = Pipeline([('new_construction', ConstructionTransformer(c_max=5, scoring=f1, n_jobs=4, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,
@@ -188,7 +188,7 @@ capuchin_pipeline = Pipeline(steps=[('preprocessor', preprocessor_3),
 # #     scoring='accuracy')
 
 cv_grid_capuchin = GridSearchCV(capuchin_pipeline, param_grid = {
-    'clf__n_estimators' : [100],
+    'clf__n_estimators' : [100],#,
     'clf__criterion' : ['gini', 'entropy'],
     'clf__class_weight' : [None, 'balanced'],
     'clf__max_depth' : [None, 3, 5]#,
@@ -255,7 +255,7 @@ for train_index, test_index in kf1.split(COMPAS):
     f1_train = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 
     #cv_grid_transformed.scoring = fair_train
-    cv_grid_transformed.scoring = f1_train
+    #cv_grid_transformed.scoring = f1_train
     transformed = cv_grid_transformed.fit(COMPAS_train_transformed, np.ravel(y_train)) ###### PROBLEM WITH THE INDICES WHEN PASSED TO ROD!!!!!
     # select_indices = transformed.named_steps['feature_selection'].transform(
     #     np.arange(len(COMPAS_train_transformed.columns)).reshape(1, -1)
@@ -263,13 +263,13 @@ for train_index, test_index in kf1.split(COMPAS):
     # feature_names = COMPAS_train_transformed.columns[select_indices]
 
     #cv_grid_original.scoring = fair_train
-    cv_grid_original.scoring = f1_train
+    #cv_grid_original.scoring = f1_train
     original = cv_grid_original.fit(COMPAS_train_original, np.ravel(y_train))
     #cv_grid_dropped.scoring = fair_train
-    cv_grid_dropped.scoring = f1_train
+    #cv_grid_dropped.scoring = f1_train
     dropped = cv_grid_dropped.fit(COMPAS_train_dropped, np.ravel(y_train))
     #cv_grid_capuchin.scoring = fair_train
-    cv_grid_capuchin.scoring = f1_train
+    #cv_grid_capuchin.scoring = f1_train
     capuchin = cv_grid_capuchin.fit(COMPAS_train_capuchin, np.ravel(y_train_capuchin))
 
     y_pred_original = original.predict(COMPAS_test_original)
@@ -281,13 +281,17 @@ for train_index, test_index in kf1.split(COMPAS):
     y_pred_capuchin = capuchin.predict(COMPAS_test_original)
     y_pred_proba_capuchin = capuchin.predict_proba(COMPAS_test_original)[:,1]
 
-    contexts = test_df.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']].to_numpy()
+    contexts = test_df.loc[:, ['age_cat', 'priors_count', 'c_charge_degree']]
     sensitive = np.squeeze(test_df['race'].to_numpy())
 
-    rod_transformed = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_transformed), sensitive, contexts, protected='African-American')
-    rod_original = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_original), sensitive, contexts, protected='African-American')
-    rod_dropped = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_dropped), sensitive, contexts, protected='African-American')
-    rod_capuchin = ROD(np.ravel(y_test), pd.DataFrame(y_pred_proba_capuchin), sensitive, contexts, protected='African-American')
+    rod_transformed = ROD(y_pred=y_pred_proba_transformed, sensitive=test_df.loc[:, ['race']], admissible = contexts,
+                      protected='African-American', name='transformed_COMPAS')
+    rod_original =ROD(y_pred=y_pred_proba_original, sensitive=test_df.loc[:, ['race']], admissible = contexts,
+                      protected='African-American', name='transformed_COMPAS')
+    rod_dropped = ROD(y_pred=y_pred_proba_dropped, sensitive=test_df.loc[:, ['race']], admissible = contexts,
+                      protected='African-American', name='transformed_COMPAS')
+    rod_capuchin = ROD(y_pred=y_pred_proba_capuchin, sensitive=test_df.loc[:, ['race']], admissible = contexts,
+                      protected='African-American', name='transformed_COMPAS')
 
     acc_transformed = accuracy_score(np.ravel(y_test), y_pred_transformed)
     f1_transformed = f1_score(np.ravel(y_test), y_pred_transformed)
