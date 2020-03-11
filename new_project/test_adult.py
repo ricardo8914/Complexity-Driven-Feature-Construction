@@ -17,7 +17,9 @@ from sklearn.model_selection import train_test_split
 from fastsklearnfeature.interactiveAutoML.fair_measure import true_positive_rate_score
 from d_separation import d_separation
 from sklearn.metrics import log_loss
+from test_evolutionary import evolution
 from tqdm import tqdm
+import re
 import ROD
 import sys
 sys.path.insert(0, '/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
@@ -227,14 +229,14 @@ features2_build_mask_2 = ([False] * len(features2_build_num_2)) + ([True] * len(
 
 acc = make_scorer(accuracy_score, greater_is_better=True, needs_threshold=False)
 f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
-column_transformation = Pipeline([('new_construction', ConstructionTransformer(c_max=3,max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
+column_transformation = Pipeline([('new_construction', ConstructionTransformer(c_max=2,max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,
                                                     feature_names=new_order,
                                                     feature_is_categorical=features2_build_mask))])
 
-column_transformation_2 = Pipeline([('new_construction', ConstructionTransformer(c_max=3,max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
+column_transformation_2 = Pipeline([('new_construction', ConstructionTransformer(c_max=2,max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,
@@ -261,9 +263,15 @@ method_list = []
 kf1 = KFold(n_splits=5, shuffle=True)
 for train_index, test_index in kf1.split(adult_df):
 
+
+
     print('Start proccessing fold: {}'.format(count+1))
     train_df = adult_df.iloc[train_index]
     test_df = adult_df.iloc[test_index]
+
+    rod = make_scorer(ROD.ROD, greater_is_better=True, needs_proba=False, sensitive=train_df.loc[:, ['sex']],
+                      admissible=train_df.loc[:, admissible_features],
+                      protected=' Female', name='dropped_adult')
 
     X_train = train_df.loc[:, ['workclass', 'education', 'sex', 'marital-status', 'occupation', 'age', 'capital-gain',
                             'capital-loss', 'hours-per-week']]
@@ -295,10 +303,16 @@ for train_index, test_index in kf1.split(adult_df):
         j = (i.get_name()).strip()
         transformed_columns_dropped.extend([j])
 
+
     transformed_columns_complete = []
     for i in all_transformations_2:
         j = (i.get_name()).strip()
         transformed_columns_complete.extend([j])
+
+    transformed_train_2_df = pd.DataFrame(data=transformed_train_2, columns=transformed_columns_complete)
+
+    evolution(transformed_train_2_df, np.ravel(y_train.to_numpy()), scorers=[f1, rod], cv_splitter=5,
+              max_search_time=60)
 
     print('Start repairing training set with capuchin')
     to_repair = pd.concat([X_train, y_train], axis=1)
@@ -449,6 +463,7 @@ for train_index, test_index in kf1.split(adult_df):
     feature_construction_causal = cv_grid_transformed_causal.fit(transformed_train_2[:, selected_idx_causal],
                                                                      np.ravel(y_train.to_numpy()))
 
+
     print('Classifiers were trained')
     #
     outcome_dropped = dropped.predict(X_test_dropped)
@@ -466,6 +481,16 @@ for train_index, test_index in kf1.split(adult_df):
         transformed_test_2[:, selected_idx_causal])[:, 1]
 
     admissible_df = X_test_dropped
+
+    # admissible_list = list(admissible_df)
+    #
+    # raw_selected_names_dropped = []
+    # for i in admissible_list:
+    #     for j in selected_names_dropped:
+    #         if re.search(i, j):
+    #             raw_selected_names_dropped.extend([i])
+
+
     admissible_feature_construction_dropped = pd.DataFrame(data=transformed_test[:, selected_idx_dropped], 
                                                           columns=selected_names_dropped)
     admissible_feature_construction_complete = pd.DataFrame(data=transformed_test_2[:, selected_idx_complete],
@@ -482,13 +507,13 @@ for train_index, test_index in kf1.split(adult_df):
                       protected=' Female',
                       name='capuchin_adult')
     rod_transformed_dropped = ROD.ROD(y_pred=y_pred_proba_transformed_dropped, sensitive=X_test.loc[:, ['sex']], 
-                                      admissible=admissible_feature_construction_dropped,
+                                      admissible=admissible_df,
                   protected=' Female', name='feature_construction_adult_dropped')
     rod_transformed_complete = ROD.ROD(y_pred=y_pred_proba_transformed_complete, sensitive=X_test.loc[:, ['sex']],
-                              admissible=admissible_feature_construction_complete,
+                              admissible=admissible_df,
                               protected=' Female', name='feature_construction_adult_complete')
     rod_transformed_causal = ROD.ROD(y_pred=y_pred_proba_transformed_causal, sensitive=X_test.loc[:, ['sex']],
-                                       admissible=admissible_feature_construction_causal,
+                                       admissible=admissible_df,
                                        protected=' Female', name='feature_construction_adult_causal')
 
     tpr_dropped = true_positive_rate_score(y_test.to_numpy(), outcome_dropped, sensitive_data=X_test.loc[:, ['sex']])
@@ -562,10 +587,10 @@ summary_df = pd.DataFrame(method_list, columns=['Method', 'Accuracy', 'ROD', 'Eq
 
 print(summary_df.groupby('Method')['Accuracy'].mean())
 print(summary_df.groupby('Method')['ROD'].mean())
-print(summary_df.groupby('Method')['TPR'].mean())
+print(summary_df.groupby('Method')['Equal_Oportunity'].mean())
 print(summary_df.groupby('Method')['F1'].mean())
 
-summary_df.to_csv(path_or_buf=results_path + '/summary_adult_rfACCF1_causal_df_complete.csv', index=False)
+summary_df.to_csv(path_or_buf=results_path + '/summary_adult_rfACCF1_causal_df_complete_2.csv', index=False)
 
 #print(mb_original)
 #print(mb_dropped)
