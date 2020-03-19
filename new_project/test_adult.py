@@ -229,14 +229,14 @@ features2_build_mask_2 = ([False] * len(features2_build_num_2)) + ([True] * len(
 
 acc = make_scorer(accuracy_score, greater_is_better=True, needs_threshold=False)
 f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
-column_transformation = Pipeline([('new_construction', ConstructionTransformer(c_max=2,max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
+column_transformation = Pipeline([('new_construction', ConstructionTransformer(c_max=3, max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,
                                                     feature_names=new_order,
                                                     feature_is_categorical=features2_build_mask))])
 
-column_transformation_2 = Pipeline([('new_construction', ConstructionTransformer(c_max=2,max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
+column_transformation_2 = Pipeline([('new_construction', ConstructionTransformer(c_max=3, max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,
@@ -262,8 +262,6 @@ count = 0
 method_list = []
 kf1 = KFold(n_splits=5, shuffle=True)
 for train_index, test_index in kf1.split(adult_df):
-
-
 
     print('Start proccessing fold: {}'.format(count+1))
     train_df = adult_df.iloc[train_index]
@@ -311,8 +309,6 @@ for train_index, test_index in kf1.split(adult_df):
 
     transformed_train_2_df = pd.DataFrame(data=transformed_train_2, columns=transformed_columns_complete)
 
-    evolution(transformed_train_2_df, np.ravel(y_train.to_numpy()), scorers=[f1, rod], cv_splitter=5,
-              max_search_time=60)
 
     print('Start repairing training set with capuchin')
     to_repair = pd.concat([X_train, y_train], axis=1)
@@ -334,6 +330,25 @@ for train_index, test_index in kf1.split(adult_df):
     dropped = dropped_pipeline.fit(X_train_dropped, np.ravel(y_train.to_numpy()))
     original = original_pipeline.fit(X_train, np.ravel(y_train.to_numpy()))
     capuchin = cv_grid_capuchin.fit(generate_binned_df(X_train_repaired), np.ravel(y_train_repaired))
+
+    print('Starting to evaluate genetic feature selection')
+    selected_array = evolution(transformed_train_2_df, np.ravel(y_train.to_numpy()), scorers=[f1, rod], cv_splitter=5,
+                               max_search_time=60)
+
+    genetic_trained = []
+    for i in selected_array:
+        cv_grid_evolutionary = GridSearchCV(RandomForestClassifier(), param_grid={
+            'n_estimators': [100],  # ,
+            'criterion': ['gini', 'entropy'],
+            'class_weight': [None, 'balanced'],
+            'max_depth': [None, 3, 5]  # ,
+            # 'max_features' : [1.0]
+        },
+                                            n_jobs=-1,
+                                            scoring='f1')
+
+        genetic_trained.append(cv_grid_evolutionary.fit(transformed_train_2[:, i], np.ravel(y_train.to_numpy())))
+
     print('start processing feature construction training sets')
     
     print('Learning dropped feature construction features')
@@ -482,23 +497,6 @@ for train_index, test_index in kf1.split(adult_df):
 
     admissible_df = X_test_dropped
 
-    # admissible_list = list(admissible_df)
-    #
-    # raw_selected_names_dropped = []
-    # for i in admissible_list:
-    #     for j in selected_names_dropped:
-    #         if re.search(i, j):
-    #             raw_selected_names_dropped.extend([i])
-
-
-    admissible_feature_construction_dropped = pd.DataFrame(data=transformed_test[:, selected_idx_dropped], 
-                                                          columns=selected_names_dropped)
-    admissible_feature_construction_complete = pd.DataFrame(data=transformed_test_2[:, selected_idx_complete],
-                                                           columns=selected_names_complete)
-    admissible_feature_construction_causal = pd.DataFrame(data=transformed_test_2[:, selected_idx_causal],
-                                                            columns=selected_names_causal)
-
-
     rod_dropped = ROD.ROD(y_pred=y_pred_proba_dropped, sensitive=X_test.loc[:, ['sex']], admissible = admissible_df,
                       protected=' Female', name='dropped_adult')
     rod_original = ROD.ROD(y_pred=y_pred_proba_original, sensitive=X_test.loc[:, ['sex']], admissible = admissible_df,
@@ -542,15 +540,41 @@ for train_index, test_index in kf1.split(adult_df):
     f1_transformed_complete = f1_score(np.ravel(y_test), outcome_transformed_complete)
     f1_transformed_causal = f1_score(np.ravel(y_test), outcome_transformed_causal)
 
+    representation_dropped = list(X_train_dropped)
+    representation_original = list(X_train)
+    representation_capuchin = list(X_train)
+    representation_fc_dropped = selected_names_dropped
+    representation_fc_complete = selected_names_complete
+    representation_fc_causal = selected_names_causal
+
+    for idx, i in enumerate(genetic_trained):
+        outcome_gen = i.predict(transformed_test_2[:, selected_array[idx]])
+        y_pred_proba_gen = i.predict_proba(transformed_test_2[:, selected_array[idx]])[:, 1]
+        rod_gen = ROD.ROD(y_pred=y_pred_proba_gen, sensitive=X_test.loc[:, ['sex']], admissible=admissible_df,
+                              protected=' Female', name='feature_construction_genetic_' + str(idx)+ '_' + str(count+1))
+        tpr_gen = true_positive_rate_score(y_test.to_numpy(), outcome_gen,
+                                               sensitive_data=X_test.loc[:, ['sex']])
+        acc_gen = accuracy_score(np.ravel(y_test), outcome_gen)
+        f1_gen = f1_score(np.ravel(y_test), outcome_gen)
+        my_list = []
+        x = np.argwhere(selected_array[idx])
+        for idj, j in enumerate(x):
+            my_list.extend([x.item(idj)])
+        representation = [transformed_columns_complete[i] for i in my_list]
+        method_list.append(['feature_construction_genetic_' + str(idx), acc_gen, rod_gen, tpr_gen,
+                            f1_gen, representation, count + 1])
+
     method_list.extend([['feature_construction_dropped', acc_transformed_dropped, rod_transformed_dropped, 
-                         tpr_transformed_dropped, f1_transformed_dropped, count + 1],
+                         tpr_transformed_dropped, f1_transformed_dropped, representation_fc_dropped, count + 1],
                         ['feature_construction_complete', acc_transformed_complete, rod_transformed_complete, 
-                         tpr_transformed_complete, f1_transformed_complete, count + 1],
+                         tpr_transformed_complete, f1_transformed_complete, representation_fc_complete, count + 1],
                         ['feature_construction_causal', acc_transformed_causal, rod_transformed_causal,
-                         tpr_transformed_causal, f1_transformed_causal, count + 1],
-                        ['original', acc_original, rod_original, tpr_original, f1_original, count + 1],
-                        ['dropped', acc_dropped, rod_dropped, tpr_dropped, f1_dropped, count + 1],
-                        ['capuchin', acc_capuchin, rod_capuchin, tpr_capuchin, f1_capuchin, count + 1]])
+                         tpr_transformed_causal, f1_transformed_causal, representation_fc_causal, count + 1],
+                        ['original', acc_original, rod_original, tpr_original, f1_original, representation_original,
+                         count + 1],
+                        ['dropped', acc_dropped, rod_dropped, tpr_dropped, f1_dropped, representation_dropped, count + 1],
+                        ['capuchin', acc_capuchin, rod_capuchin, tpr_capuchin, f1_capuchin, representation_capuchin,
+                         count + 1]])
 
     count += 1
 
@@ -583,14 +607,14 @@ for train_index, test_index in kf1.split(adult_df):
     print('f1 transformed complete: {:.4f}'.format(f1_transformed_complete))
     print('f1 transformed causal: {:.4f}'.format(f1_transformed_causal))
 
-summary_df = pd.DataFrame(method_list, columns=['Method', 'Accuracy', 'ROD', 'Equal_Oportunity', 'F1', 'Fold'])
+summary_df = pd.DataFrame(method_list, columns=['Method', 'Accuracy', 'ROD', 'Equal_Oportunity', 'F1', 'Representation', 'Fold'])
 
 print(summary_df.groupby('Method')['Accuracy'].mean())
 print(summary_df.groupby('Method')['ROD'].mean())
 print(summary_df.groupby('Method')['Equal_Oportunity'].mean())
 print(summary_df.groupby('Method')['F1'].mean())
 
-summary_df.to_csv(path_or_buf=results_path + '/summary_adult_rfACCF1_causal_df_complete_2.csv', index=False)
+summary_df.to_csv(path_or_buf=results_path + '/summary_adult_rfACCF1_causal_df_complete_genetic_50it.csv', index=False)
 
 #print(mb_original)
 #print(mb_dropped)
