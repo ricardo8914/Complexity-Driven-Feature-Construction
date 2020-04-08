@@ -23,7 +23,7 @@ recall = make_scorer(recall_score, greater_is_better=True, needs_threshold=False
 precision = make_scorer(precision_score, greater_is_better=True, needs_threshold=False)
 f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 acc = make_scorer(accuracy_score, greater_is_better=True, needs_threshold=False)
-my_pipeline = Pipeline([('new_construction', ConstructionTransformer(c_max=5, scoring=acc, n_jobs=4, model=LogisticRegression(),
+my_pipeline = Pipeline([('new_construction', ConstructionTransformer(c_max=5, scoring=f1, n_jobs=4, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,

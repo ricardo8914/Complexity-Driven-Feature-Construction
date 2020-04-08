@@ -18,11 +18,12 @@ else:
     exit()
 
 def d_separation(df=None, sensitive=None, target=None, tmp_path=tmp_folder):
+    r = randrange(1000000)
 
-    df.to_csv(path_or_buf=tmp_folder + '/' + sensitive + '.csv', index=False)
-    subprocess.run("Rscript " + rscript_path + ' ' + sensitive + ' ' + target + ' ' + tmp_path, shell=True)
+    df.to_csv(path_or_buf=tmp_folder + '/' + sensitive + str(r) + '.csv', index=False)
+    subprocess.run("Rscript " + rscript_path + ' ' + sensitive + ' ' + target + ' ' + tmp_path + ' ' + sensitive + str(r), shell=True)
 
-    file = open(tmp_folder + '/' + sensitive + '.txt', 'r')
+    file = open(tmp_folder + '/' + sensitive + str(r) + '.txt', 'r')
     f1 = file.readlines()
     l = f1[0].strip()
     l = l.replace('\n\'', '')
@@ -32,7 +33,7 @@ def d_separation(df=None, sensitive=None, target=None, tmp_path=tmp_folder):
     elif l == 'FALSE':
         response = False
 
-    os.remove(tmp_folder + '/' + sensitive + '.csv')
-    os.remove(tmp_folder + '/' + sensitive + '.txt')
+    os.remove(tmp_folder + '/' + sensitive + str(r) + '.csv')
+    os.remove(tmp_folder + '/' + sensitive + str(r) + '.txt')
 
     return response

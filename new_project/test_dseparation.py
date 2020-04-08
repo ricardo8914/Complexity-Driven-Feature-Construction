@@ -17,6 +17,7 @@ from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
 from fastsklearnfeature.interactiveAutoML.fair_measure import true_positive_rate_score
 from sklearn.metrics import log_loss
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 import ROD
 import sys
@@ -85,9 +86,9 @@ features2_build_mask_2 = ([False] * len(features2_build_num_2)) + ([True] * len(
 acc = make_scorer(accuracy_score, greater_is_better=True, needs_threshold=False)
 f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 
-column_transformation_2 = Pipeline([('new_construction', ConstructionTransformer(c_max=4,max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
+column_transformation_2 = Pipeline([('new_construction', ConstructionTransformer(c_max=3,max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
-                                                                       'class_weight': ['balanced'], 'max_iter': [100000],
+                                                                       'class_weight': [None, 'balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,
                                                     feature_names=new_order_2,
                                                     feature_is_categorical=features2_build_mask_2))])
@@ -95,10 +96,12 @@ column_transformation_2 = Pipeline([('new_construction', ConstructionTransformer
 transformed_pipeline_2 = Pipeline(steps=[('preprocessor', preprocessor_t),
                                 ('feature_construction', column_transformation_2)])
 
-cv_grid_transformed_2 = LogisticRegression(
-    penalty =  'l2', C = 1, solver = 'lbfgs',
-    max_iter = 100000
-)
+# cv_grid_transformed_2 = LogisticRegression(
+# #     penalty =  'l2', C = 1, solver = 'lbfgs',
+# #     max_iter = 100000, class_weight='balanced', n_jobs=-1
+# # )
+
+cv_grid_transformed_2 = RandomForestClassifier(class_weight='balanced', max_features=1.0, n_jobs=-1)
 
 #########################################
 
@@ -117,58 +120,56 @@ for i in all_transformations_2:
     j = (i.get_name()).strip()
     transformed_columns_2.extend([j])
 
-feature_construction_2 = cv_grid_transformed_2.fit(transformed_train_2, np.ravel(y_train.to_numpy()))
-result_2 = permutation_importance(feature_construction_2, transformed_train_2, np.ravel(y_train.to_numpy()), n_repeats=5,
-                                    scoring='f1', n_jobs=-1)
-
-sorted_idx_2 = result_2.importances_mean.argsort()[::-1]
-best_2 = [transformed_columns_2[i] for i in sorted_idx_2]
-
 selected_idx = []
 selected_names = []
 size = []
 L = []
 ll = np.inf
-for idx, i in enumerate(best_2):
+for idx, i in enumerate(tqdm(transformed_columns_2)):
     if i != sensitive_feature:
 
-        selected_idx.extend([sorted_idx_2[idx]])
-        selected_names.extend([i])
+        test_model = LogisticRegression()
 
-        test_model = LogisticRegression(penalty = 'l2', C = 1, solver = 'lbfgs',
-                                                                       class_weight = 'balanced', max_iter = 100000)
+        test_model.fit(transformed_train_2[:, [idx]], np.ravel(y_train.to_numpy()))
 
-        test_model.fit(transformed_train_2[:, selected_idx], np.ravel(y_train.to_numpy()))
-
-        proba = test_model.predict_proba(transformed_train_2[:, selected_idx])[:, 1]
-        predictions = test_model.predict(transformed_train_2[:, selected_idx])
+        proba = test_model.predict_proba(transformed_train_2[:, [idx]])[:, 1]
+        predictions = test_model.predict(transformed_train_2[:, [idx]])
         outcome_df = pd.DataFrame(data=predictions, columns=['outcome'])
         sensitive_df = pd.DataFrame(data=X_train.loc[:, sensitive_feature].to_numpy(), columns=[sensitive_feature])
-        selected_df = pd.DataFrame(data=transformed_train_2[:, selected_idx], columns=selected_names)
+        selected_df = pd.DataFrame(data=transformed_train_2[:, [idx]], columns=[i])
         test_df = pd.concat([sensitive_df, selected_df, outcome_df], axis=1)
 
         if d_separation(test_df, sensitive=sensitive_feature, target='outcome'):
-            print('Selected: {}'.format(selected_names))
-            logLoss = log_loss(y_true=np.ravel(y_train.to_numpy()), y_pred=proba)
-            size.extend([len(selected_names)])
-            L.extend([logLoss])
-            if ll - logLoss >= 0.001:
+            selected_idx.extend([idx])
+            selected_names.extend([i])
+            test_model.fit(transformed_train_2[:, selected_idx], np.ravel(y_train.to_numpy()))
+            proba_i = test_model.predict_proba(transformed_train_2[:, selected_idx])[:, 1]
+            logLoss = log_loss(y_true=np.ravel(y_train.to_numpy()), y_pred=proba_i)
+            if ll - logLoss >= 0.005:
                 ll = logLoss
-                pass
+                size.extend([len(selected_names)])
+                L.extend([logLoss])
+                print('Selected: {}'.format(selected_names))
+                print('Size: {}'.format(str(len(selected_names))))
+                print('Log Loss: {:.4f}'.format(logLoss))
             else:
-                break
+                selected_names.remove(i)
+                selected_idx.remove(idx)
         else:
-            selected_names.remove(i)
-            selected_idx.remove(sorted_idx_2[idx])
+            pass
+
 
 print(selected_names)
 
-cv_grid_transformed_3 = GridSearchCV(LogisticRegression(), param_grid = {
-    'penalty': ['l2'], 'C': [0.5, 1, 1.5], 'solver': ['lbfgs'],
-    'class_weight': [None, 'balanced'], 'max_iter': [100000]
+cv_grid_transformed_3 = GridSearchCV(RandomForestClassifier(), param_grid={
+        'n_estimators': [100],  # ,
+        'criterion': ['gini', 'entropy'],
+        'class_weight': [None, 'balanced'],
+        'max_depth': [None, 3, 5]  # ,
+        # 'max_features' : [1.0]
     },
-    n_jobs=-1,
-    scoring='f1')
+                             n_jobs=-1,
+                             scoring='f1')
 
 cv_grid_transformed_3.fit(transformed_train_2[:, selected_idx], np.ravel(y_train.to_numpy()))
 proba = cv_grid_transformed_3.predict_proba(transformed_test_2[:, selected_idx])[:, 1]

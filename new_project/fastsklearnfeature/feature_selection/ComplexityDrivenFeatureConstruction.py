@@ -50,7 +50,7 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
                  folds=10,
                  score=make_scorer(f1_score, average='micro'),
                  max_seconds=10000,
-                 save_logs=True,
+                 save_logs=None,
                  reader=None,
                  upload2openml=False,
                  remove_parents=True,
@@ -756,7 +756,10 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
 
         all_aiccs = []
         for rep in list(max_feature_per_complexity.values()):
-            all_aiccs.append(np.mean(rep.runtime_properties['additional_metrics']['AICc_complexity']))
+            try:
+                all_aiccs.append(np.mean(rep.runtime_properties['additional_metrics']['AICc_complexity']))
+            except KeyError:
+                pass
 
         def calculate_AIC_for_classification_paper(rss, n, k):
             AIC = 2 * k + float(n) * np.log(rss / float(n))
@@ -776,18 +779,21 @@ class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
             return np.sum(np.array(new_aics) < np.array(old_aics)) > len(new_aics) / 2.0
 
         for rep in list(max_feature_per_complexity.values()):
-            curr = np.mean(rep.runtime_properties['additional_metrics']['AICc_complexity'])
-            #print(str(rep) + ': ' + str(curr) + ' AICc min: ' + str(np.min(rep.runtime_properties['additional_metrics']['AICc_complexity'])) + ' AICc std: ' + str(np.std(rep.runtime_properties['additional_metrics']['AICc_complexity'])) + ' P: ' + str(np.exp((min(all_aiccs) - curr)/2)) + ' CV AUC: ' + str(rep.runtime_properties['score']))
-            print(str(rep) + ':' + str(rep.runtime_properties['additional_metrics']['AICc_complexity']))
-            print(str(rep) + ':' + str(rep.runtime_properties['additional_metrics']['rss']))
-            print(str(rep) + ':' + str(rep.runtime_properties['additional_metrics']['n']))
+            try:
+                curr = np.mean(rep.runtime_properties['additional_metrics']['AICc_complexity'])
+                #print(str(rep) + ': ' + str(curr) + ' AICc min: ' + str(np.min(rep.runtime_properties['additional_metrics']['AICc_complexity'])) + ' AICc std: ' + str(np.std(rep.runtime_properties['additional_metrics']['AICc_complexity'])) + ' P: ' + str(np.exp((min(all_aiccs) - curr)/2)) + ' CV AUC: ' + str(rep.runtime_properties['score']))
+                print(str(rep) + ':' + str(rep.runtime_properties['additional_metrics']['AICc_complexity']))
+                print(str(rep) + ':' + str(rep.runtime_properties['additional_metrics']['rss']))
+                print(str(rep) + ':' + str(rep.runtime_properties['additional_metrics']['n']))
 
-            print(str(rep) + 'global_aicc: ' + str(calc_global_aicc(rep)))
+                print(str(rep) + 'global_aicc: ' + str(calc_global_aicc(rep)))
 
-            #if type(min_aicc_feature) == type(None) or is_better(min_aicc_feature.runtime_properties['additional_metrics']['AICc_complexity'], rep.runtime_properties['additional_metrics']['AICc_complexity']):
-            if type(min_aicc_feature) == type(None) or calc_global_aicc(rep) < calc_global_aicc(min_aicc_feature):
-                #min_aicc = np.min(rep.runtime_properties['additional_metrics']['AICc_complexity'])
-                min_aicc_feature = rep
+                #if type(min_aicc_feature) == type(None) or is_better(min_aicc_feature.runtime_properties['additional_metrics']['AICc_complexity'], rep.runtime_properties['additional_metrics']['AICc_complexity']):
+                if type(min_aicc_feature) == type(None) or calc_global_aicc(rep) < calc_global_aicc(min_aicc_feature):
+                    #min_aicc = np.min(rep.runtime_properties['additional_metrics']['AICc_complexity'])
+                    min_aicc_feature = rep
+            except KeyError:
+                pass
         max_feature = min_aicc_feature
 
         print(max_feature)

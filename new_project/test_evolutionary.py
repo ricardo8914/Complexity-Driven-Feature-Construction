@@ -92,18 +92,18 @@ def evolution(X_train, y_train, scorers=[], cv_splitter=5, max_search_time=60):
 
 
 
-	population_size = 20
+	population_size = 5
 	cross_over_rate = 0.9
 	algorithm = NSGA2(pop_size=population_size,
 					  sampling=get_sampling("bin_random"),
 					  crossover=get_crossover('bin_one_point'),
 					  # get_crossover("bin_hux"),#get_crossover("bin_two_point"),
-					  mutation=BinaryBitflipMutation(1.0 / X_train.shape[1]),
+					  mutation=BinaryBitflipMutation(10.0 / X_train.shape[1]),
 					  elimate_duplicates=True#,
 					  # n_offsprings= cross_over_rate * population_size
 					  )
 
-	res = minimize(problem, algorithm, get_termination('n_gen', 50), disp=False)
+	res = minimize(problem, algorithm, get_termination('n_gen', 100), disp=False)
 	#res = minimize(problem, algorithm, get_termination("n_eval", 5), disp=False)
 
 	return res.X

@@ -74,10 +74,17 @@ for k, v in cost_2_unary_transformed.items():
         COMPAS_train_transformed[c.get_name()] = c.pipeline.transform(X_train_t.to_numpy())
         COMPAS_test_transformed[c.get_name()] = c.pipeline.transform(X_test_t.to_numpy())
 
+
 for k, v in cost_2_binary_transformed.items():
     for c in v:
         COMPAS_train_transformed[c.get_name()] = c.pipeline.transform(X_train_t.to_numpy())
         COMPAS_test_transformed[c.get_name()] = c.pipeline.transform(X_test_t.to_numpy())
+
+
+
+
+
+
 
 COMPAS_train_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
 COMPAS_test_transformed.drop(columns=['age_cat', 'c_charge_degree'], inplace=True)
