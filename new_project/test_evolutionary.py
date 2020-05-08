@@ -56,14 +56,14 @@ def evolution(X_train, y_train, scorers=[], cv_splitter=5, max_search_time=60):
 
 		cv = GridSearchCV(model, param_grid={'clf__C': [1.0]}, cv=cv_splitter,
 						  scoring=scorer_mapping,
-						  refit=False)
+						  refit=False, n_jobs=-1)
 		cv.fit(X_train, pd.DataFrame(y_train))
 		results = []
 
 		for scorer_i in range(len(scorers)):
 			results.append(cv.cv_results_['mean_test_' + 'scorer' + str(scorer_i)][0])
 
-		results.append(np.sum(features))
+		results.append(-np.sum(features))
 		return results
 
 	class MyProblem(Problem):
@@ -92,13 +92,13 @@ def evolution(X_train, y_train, scorers=[], cv_splitter=5, max_search_time=60):
 
 
 
-	population_size = 5
+	population_size = 30
 	cross_over_rate = 0.9
 	algorithm = NSGA2(pop_size=population_size,
 					  sampling=get_sampling("bin_random"),
 					  crossover=get_crossover('bin_one_point'),
 					  # get_crossover("bin_hux"),#get_crossover("bin_two_point"),
-					  mutation=BinaryBitflipMutation(10.0 / X_train.shape[1]),
+					  mutation=BinaryBitflipMutation(1.0 / X_train.shape[1]),
 					  elimate_duplicates=True#,
 					  # n_offsprings= cross_over_rate * population_size
 					  )
@@ -127,10 +127,11 @@ def evolution(X_train, y_train, scorers=[], cv_splitter=5, max_search_time=60):
 #
 # a = evolution(X_train, y_train, scorers=[auc_scorer, f1_scorer], cv_splitter=5, max_search_time=1000)
 #
-#
-# # for i in a:
-# # # 	x = np.argwhere(i)
-# # # 	s = []
-# # # 	for idj, j in enumerate(x):
-# # # 		s.extend([x.item(idj)])
-# # # 	print(s)
+# selected_columns = []
+# for i in a:
+# 	x = np.argwhere(i)
+# 	s = []
+# 	for idj, j in enumerate(x):
+# 		s.extend([x.item(idj)])
+# 	selected_columns.append(s)
+# print(selected_columns)

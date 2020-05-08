@@ -3,29 +3,16 @@ from pathlib import Path
 import itertools
 import numpy as np
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import KFold
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import f1_score
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
 from sklearn.metrics import make_scorer
 from sklearn.linear_model import LogisticRegression
-from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
-from fastsklearnfeature.interactiveAutoML.fair_measure import true_positive_rate_score
 from d_separation import d_separation
 import multiprocessing as mp
-from sklearn.metrics import log_loss
-from test_evolutionary import evolution
-from tqdm import tqdm
-import re
-import ROD
-import sys
-sys.path.insert(0, '/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
-from methods.capuchin import repair_dataset
 
 home = str(Path.home())
 
@@ -106,10 +93,10 @@ for i in all_2_combinations:
     X_train_t = X_train.loc[:, features2_build].to_numpy()
     X_test_t = X_test.loc[:, features2_build].to_numpy()
 
-    transformed_train = transformed_pipeline.fit_transform(X_train_t, np.ravel(y_train))
+    transformed_pipeline.fit_transform(X_train_t, np.ravel(y_train))
     all_transformations = transformed_pipeline.named_steps['feature_construction'].named_steps[
         'new_construction'].all_features_set
-    transformed_test = transformed_pipeline.transform(X_test_t)
+    #transformed_test = transformed_pipeline.transform(X_test_t)
 
 
     #########Paralelize!!!!
@@ -198,7 +185,7 @@ for i in all_2_combinations:
 
                     pipeline_pc.fit(X_train_pc, np.ravel(y_train))
 
-                    y_pred_proba_parent = pipeline_pc.predict_proba(X_test_pc)[:, 1]
+                    #y_pred_proba_parent = pipeline_pc.predict_proba(X_test_pc)[:, 1]
                     outcome_parent = pipeline_pc.predict(X_test_pc)
 
                     outcome_p_df = pd.DataFrame(data=outcome_parent, columns=['outcome'])
@@ -219,7 +206,7 @@ for i in all_2_combinations:
 
                     parents_clf.fit(transformed_train_p, np.ravel(y_train))
 
-                    y_pred_proba_parent = parents_clf.predict_proba(transformed_test_p)[:, 1]
+                    #y_pred_proba_parent = parents_clf.predict_proba(transformed_test_p)[:, 1]
                     outcome_parent = parents_clf.predict(transformed_test_p)
 
                     outcome_p_df = pd.DataFrame(data=outcome_parent, columns=['outcome'])
@@ -228,7 +215,7 @@ for i in all_2_combinations:
                     parent_df_causal = pd.DataFrame(data=transformed_test_p, columns=[(p.get_name()).strip()])
                     test_p_df_causal = pd.concat([sensitive_df, parent_df_causal, outcome_p_df], axis=1)
 
-                    if np.unique(transformed_test_p).shape[0] == 1:
+                    if np.unique(transformed_test_p).shape[0] == 1 or np.unique(outcome_parent).shape[0] == 1:
                         parents_type.extend(['admissible'])
                     elif d_separation(test_p_df_causal, sensitive=sensitive_feature, target='outcome'):
                         parents_type.extend(['admissible'])
@@ -248,7 +235,7 @@ for i in all_2_combinations:
             transformed_test_c = candidate.pipeline.transform(preprocessor.transform(X_test_t))
 
             feature_clf.fit(transformed_train_c, np.ravel(y_train))
-            y_pred_proba_candidate = feature_clf.predict_proba(transformed_test_c)[:, 1]
+            #y_pred_proba_candidate = feature_clf.predict_proba(transformed_test_c)[:, 1]
             outcome_candidate = feature_clf.predict(transformed_test_c)
 
             outcome_df = pd.DataFrame(data=outcome_candidate, columns=['outcome'])
@@ -257,7 +244,7 @@ for i in all_2_combinations:
             selected_df_causal = pd.DataFrame(data=transformed_test_c, columns=[j])
             test_df_causal = pd.concat([sensitive_df, selected_df_causal, outcome_df], axis=1)
 
-            if np.unique(transformed_test_c).shape[0] == 1:
+            if np.unique(transformed_test_c).shape[0] == 1 or np.unique(outcome_candidate).shape[0] == 1:
                 instance.extend([1])
             elif d_separation(test_df_causal, sensitive=sensitive_feature, target='outcome'):
 
@@ -275,8 +262,8 @@ for i in all_2_combinations:
     results = pool.map(generate_instance, transformations2_generate)
     pool.close()
 
-    can = list(itertools.chain(*[results]))
-    pool.close()
+    #can = list(itertools.chain(*[results]))
+    #pool.close()
 
     #print(can)
 
@@ -292,4 +279,4 @@ instances_df = pd.DataFrame(all_instances, columns=['root', 'name', 'transformat
 print(instances_df.shape)
 print(instances_df.groupby('transformations')['label'].mean())
 
-instances_df.to_csv(path_or_buf=results_path + '/feature_analysis_p2_c4_dsep.csv', index=False)
+instances_df.to_csv(path_or_buf=results_path + '/feature_analysis_adult.csv', index=False)

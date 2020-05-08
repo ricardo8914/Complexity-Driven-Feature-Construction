@@ -51,8 +51,6 @@ def generate_binned_df(df):
     df_ = df.copy()
     for i in list(df_):
         if i not in ['target', 'outcome'] and (df_[i].dtype != np.dtype('O') and len(df_[i].unique()) > 4):
-
-
             out, bins = pd.cut(df_[i], bins=2, retbins=True, duplicates='drop')
             df_.loc[:, i] = out.astype(str)
 
@@ -242,8 +240,6 @@ column_transformation_2 = Pipeline([('new_construction', ConstructionTransformer
                                                                        'multi_class':['auto']}, cv=5, epsilon=0.0,
                                                     feature_names=new_order_2,
                                                     feature_is_categorical=features2_build_mask_2))])
-
-
 
 transformed_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
                                 ('feature_construction', column_transformation)])#,#,

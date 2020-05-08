@@ -28,7 +28,17 @@ home = str(Path.home())
 
 results_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/intermediate_results'
 
-results = pd.read_csv(results_path + '/feature_analysis_p2_c4_dsep.csv')
+german_credit = pd.read_csv(results_path + '/feature_analysis_german_credit.csv')
+COMPAS = pd.read_csv(results_path + '/feature_analysis_COMPAS.csv')
+adult = pd.read_csv(results_path + '/feature_analysis_adult.csv')
+
+print(german_credit.shape, COMPAS.shape, adult.shape)
+
+frames = [german_credit, COMPAS, adult]
+
+results = pd.concat(frames)
+
+results.dropna(inplace=True)
 
 #results.loc[:, ['name', 'fair_categories', 'types', 'transformations', 'complexity', 'label']].to_html(buf=results_path + '/features_df.html')
 
@@ -54,10 +64,10 @@ def filter(row, black_list=black_list):
 results['filter'] = results.apply(filter, axis=1)
 
 
-X = results.loc[results['filter']==False,
+X = results.loc[:,
                 ['transformations', 'number_parents', 'complexity','number_transformations', 'number_raw_features', 'transformation_depth',
                 'parents_types', 'parents_dtypes', 'dtype']]
-y = np.ravel(results.loc[results['filter']==False, ['label']].to_numpy())
+y = np.ravel(results.loc[:, ['label']].to_numpy())
 
 summary_df = results.loc[:, ['name', 'transformations', 'number_parents', 'complexity',
                                                     'number_transformations', 'number_raw_features', 'transformation_depth',
@@ -85,9 +95,13 @@ admissible_explore.reset_index(inplace=True)
 
 admissible_explore.to_html(buf=results_path + '/admissible_explore.html', bold_rows=False, na_rep=' ', border=1)
 
-inadmissible_explore = summary_df.loc[summary_df['parents_types']=="('inadmissible', 'inadmissible')", ].groupby(['transformations'])['transformations', 'label'].mean()
+inadmissible_explore = summary_df.loc[(summary_df['parents_types']=="('inadmissible', 'admissible')") & (summary_df['label']==1), ['name', 'transformations']]
 
-inadmissible_explore.reset_index(inplace=True)
+#inadmissible_explore.reset_index(inplace=True)
+
+# pd.crosstab(inadmissible_explore.transformations, inadmissible_explore.label, values=inadmissible_explore.label, aggfunc=['count'], margins=True,
+#                   margins_name='Total').to_html(buf=results_path + '/crosstab_inadmissible.html',
+#                                                                                         bold_rows=False, na_rep=' ', border=1)
 
 inadmissible_explore.to_html(buf=results_path + '/inadmissible_explore.html', bold_rows=False, na_rep=' ', border=1)
 
@@ -175,7 +189,7 @@ cv_grid_RF = GridSearchCV(pipeline, param_grid = {
     'clf__n_estimators': [50, 100, 150],
     'clf__criterion': ['gini', 'entropy'],
     'clf__class_weight': [None, 'balanced'],
-    'clf__max_depth': [3, 5, 7, 9, 11],
+    'clf__max_depth': [3, 5, 7, 9, 11, 15],
     'clf__max_features': [0.2, 0.5, 1.0]
     },
     n_jobs=-1,
@@ -197,33 +211,29 @@ feature_importances = cv_grid_RF.best_estimator_.named_steps['clf'].feature_impo
 feature_names = cv_grid_RF.best_estimator_.named_steps['preprocessor'].transformers_[0][1]['onehot'].get_feature_names(categorical_features)
 feature_names = np.r_[feature_names, np.array(numerical_features)]
 
-important = feature_importances[feature_importances < 0.001].shape[0]
+important = feature_importances[feature_importances < 0.01].shape[0]
 sorted_idx = feature_importances.argsort()[important:]
 
 fpr, tpr, _ = roc_curve(y_test, y_predict_RF_proba)
 
 
 
-for i in _:
-    new_y_pred_RF = np.where(y_predict_RF_proba <= i, 0, 1)
-    new_F1 = f1_score(y_test, new_y_pred_RF)
-    print(i, new_F1)
-
-new_y_pred_RF = np.where(y_predict_RF_proba < 0.51, 0, 1)
-new_F1 = f1_score(y_test, new_y_pred_RF)
-
+# for i in _:
+#     new_y_pred_RF = np.where(y_predict_RF_proba <= i, 0, 1)
+#     new_F1 = f1_score(y_test, new_y_pred_RF)
+#     print(i, new_F1)
+#
+# new_y_pred_RF = np.where(y_predict_RF_proba < 0.51, 0, 1)
+# new_F1 = f1_score(y_test, new_y_pred_RF)
+#
 roc_auc = auc(fpr, tpr)
-
-print(_)
-print(fpr)
-print(tpr)
 
 plt.figure()
 lw = 2
 plt.plot(fpr, tpr, color='darkorange',
          lw=lw, label='ROC curve (area = %0.2f)' % roc_auc)
 plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-plt.axvline(x=fpr[21], color='red')
+#plt.axvline(x=fpr[21], color='red')
 plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.05])
 plt.xlabel('False Positive Rate')
@@ -233,37 +243,37 @@ plt.legend(loc="lower right")
 plt.show()
 
 
-# y_ticks = np.arange(0, len(feature_names[sorted_idx]))
-# fig, ax = plt.subplots()
-# ax.barh(y_ticks, feature_importances[sorted_idx])
-# ax.set_yticklabels(feature_names[sorted_idx])
-# ax.set_yticks(y_ticks)
-# ax.set_title("Random Forest Classifier Feature Importances")
-# fig.tight_layout()
-# plt.show()
+y_ticks = np.arange(0, len(feature_names[sorted_idx]))
+fig, ax = plt.subplots()
+ax.barh(y_ticks, feature_importances[sorted_idx])
+ax.set_yticklabels(feature_names[sorted_idx])
+ax.set_yticks(y_ticks)
+ax.set_title("Random Forest Classifier Feature Importances")
+fig.tight_layout()
+plt.show()
 
-pipeline.set_params(clf= GradientBoostingClassifier())
-
-cv_grid_GBC = GridSearchCV(pipeline, param_grid = {
-    'clf__loss' : ['deviance'],
-    'clf__learning_rate' : [0.05, 0.1, 0.3, 0.5],
-    'clf__n_estimators' : [50, 100, 150],
-    'clf__max_depth' : [3, 5, 7],
-    'clf__max_features' : [0.2, 0.5, 1.0]
-    },
-    n_jobs=-1,
-    scoring='f1',
-                           cv=10)
-
-cv_grid_GBC.fit(X_train, y_train)
-print(cv_grid_GBC.best_params_)
-print('Best score for GBC: {:.4f}'.format(cv_grid_GBC.best_score_))
-
-y_predict = cv_grid_GBC.predict(X_test)
-accuracy_GBC = accuracy_score(y_test, y_predict)
-f1_GBC = f1_score(y_test, y_predict)
-print('F1 of GBC after CV is %.3f%%' % (f1_GBC*100))
-print('Accuracy of GBC after CV is %.3f%%' % (accuracy_GBC*100))
+# pipeline.set_params(clf= GradientBoostingClassifier())
+#
+# cv_grid_GBC = GridSearchCV(pipeline, param_grid = {
+#     'clf__loss' : ['deviance'],
+#     'clf__learning_rate' : [0.05, 0.1, 0.3, 0.5],
+#     'clf__n_estimators' : [50, 100, 150],
+#     'clf__max_depth' : [3, 5, 7],
+#     'clf__max_features' : [0.2, 0.5, 1.0]
+#     },
+#     n_jobs=-1,
+#     scoring='f1',
+#                            cv=10)
+#
+# cv_grid_GBC.fit(X_train, y_train)
+# print(cv_grid_GBC.best_params_)
+# print('Best score for GBC: {:.4f}'.format(cv_grid_GBC.best_score_))
+#
+# y_predict = cv_grid_GBC.predict(X_test)
+# accuracy_GBC = accuracy_score(y_test, y_predict)
+# f1_GBC = f1_score(y_test, y_predict)
+# print('F1 of GBC after CV is %.3f%%' % (f1_GBC*100))
+# print('Accuracy of GBC after CV is %.3f%%' % (accuracy_GBC*100))
 # feature_importances = cv_grid_GBC.best_estimator_.named_steps['clf'].feature_importances_
 # feature_names = cv_grid_GBC.best_estimator_.named_steps['preprocessor'].transformers_[0][1]['onehot'].get_feature_names(categorical_features)
 # feature_names = np.r_[feature_names, np.array(numerical_features)]

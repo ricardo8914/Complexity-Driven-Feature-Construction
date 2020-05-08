@@ -33,7 +33,7 @@ class ConstructionTransformer(BaseEstimator, TransformerMixin):
                                                       score=self.scoring, c_max=self.c_max, folds=self.cv,
                                                       max_seconds=self.max_time_secs, classifier=self.model.__class__,
                                                       grid_search_parameters=self.parameter_grid, n_jobs=self.n_jobs,
-                                                      epsilon=self.epsilon, save_logs=False, remove_parents=False)
+                                                      epsilon=self.epsilon, save_logs=False, remove_parents=True)
 
         fe.run()
 
@@ -45,7 +45,7 @@ class ConstructionTransformer(BaseEstimator, TransformerMixin):
                         numeric_representations.append(r)
 
 
-        print('lenght numeric representations: ' + str(len(numeric_representations)))
+        print('length numeric representations: ' + str(len(numeric_representations)))
 
         all_features = CandidateFeature(IdentityTransformation(-1), numeric_representations)
         all_standardized = CandidateFeature(MinMaxScalingTransformation(), [all_features])

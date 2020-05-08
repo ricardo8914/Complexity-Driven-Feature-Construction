@@ -229,14 +229,14 @@ features2_build_mask_2 = ([False] * len(features2_build_num_2)) + ([True] * len(
 
 acc = make_scorer(accuracy_score, greater_is_better=True, needs_threshold=False)
 f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
-column_transformation = Pipeline([('new_construction', ConstructionTransformer(c_max=3, max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
+column_transformation = Pipeline([('new_construction', ConstructionTransformer(c_max=2, max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,
                                                     feature_names=new_order,
                                                     feature_is_categorical=features2_build_mask))])
 
-column_transformation_2 = Pipeline([('new_construction', ConstructionTransformer(c_max=3, max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
+column_transformation_2 = Pipeline([('new_construction', ConstructionTransformer(c_max=2, max_time_secs=10000, scoring=f1, n_jobs=7, model=LogisticRegression(),
                                                        parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                        'class_weight': ['balanced'], 'max_iter': [100000],
                                                                        'multi_class':['auto']}, cv=5, epsilon=-np.inf,
