@@ -17,6 +17,7 @@ from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 import ROD
 from sklearn.model_selection import KFold
 from numpy.linalg import norm
+import random
 import time
 from test_evolutionary import evolution
 import sys
@@ -103,7 +104,8 @@ for train_index, test_index in kf1.split(adult_df):
     allowed_names = []
     runtimes.extend([X_train.shape[0]])
     print(runtimes)
-    registered_representations = []
+    registered_representations_train = []
+    registered_representations_test = []
     dropped_features = []
     join_score = 0
     for idx, i in enumerate(all_2_combinations):
@@ -272,8 +274,11 @@ for train_index, test_index in kf1.split(adult_df):
                              admissible=X_test.loc[:, admissible_features],
                              protected=' Female', name='backward_adult')
             f1_ff = f1_score(np.ravel(y_test.to_numpy()), predicted_ff)
-            registered_representations.append(
+
+            registered_representations_test.append(
                 [accepted_features.copy(), len(accepted_features.copy()), f1_ff, rod_ff])
+            registered_representations_train.append(
+                [accepted_features.copy(), len(accepted_features.copy()), test_scores.mean(), rod_scores.mean()])
 
             print(transformed_train.shape, f1_ff, rod_ff, accepted_features)
 
@@ -307,8 +312,11 @@ for train_index, test_index in kf1.split(adult_df):
                                                admissible=X_test.loc[:, admissible_features],
                                                protected=' Female', name='backward_adult')
                             f1_ff_r = f1_score(np.ravel(y_test.to_numpy()), predicted_ff_r)
-                            registered_representations.append(
+
+                            registered_representations_test.append(
                                 [accepted_features_r.copy(), len(accepted_features_r.copy()), f1_ff_r, rod_ff_r])
+                            registered_representations_train.append(
+                                [accepted_features_r.copy(), len(accepted_features_r.copy()), test_scores_r.mean(), rod_scores_r.mean()])
 
                             if test_scores_r.mean() > join_score:
                                 join_score = test_scores_r.mean()
@@ -363,10 +371,125 @@ for train_index, test_index in kf1.split(adult_df):
     print('F1 complete: {:.4f}'.format(f1_complete))
     print('ROD complete {:.4f}'.format(rod_complete))
 
+    # First a single feature removal
+
+    shuffled_columns = random.shuffle(range(transformed_train.shape[1]))
+    for d in shuffled_columns:
+        transformed_train_sr = np.delete(transformed_train, d, 1)
+        transformed_test_sr = np.delete(transformed_test, d, 1)
+        accepted_features_sr = [f for idf, f in enumerate(accepted_features) if idf != d]
+        accepted_features_sr.sort()
+
+        if accepted_features_sr not in unique_representations:
+            test_scores_sr = cross_val_score(complete_clf, transformed_train_sr, np.ravel(y_train.to_numpy()), cv=5,
+                                             scoring='f1', n_jobs=-1)
+            rod_scores_sr = cross_val_score(complete_clf, transformed_train_sr, np.ravel(y_train.to_numpy()), cv=5,
+                                            scoring=rod_score, n_jobs=-1)
+
+            complete_clf.fit(transformed_train_sr, np.ravel(y_train.to_numpy()))
+            predicted_sr = complete_clf.predict(transformed_test_sr)
+            predicted_sr_proba = complete_clf.predict_proba(transformed_test_sr)[:, 1]
+            rod_sr = ROD.ROD(y_pred=predicted_sr_proba, sensitive=X_test.loc[:, ['sex']],
+                            admissible=X_test.loc[:, admissible_features],
+                            protected=' Female', name='single_b_adult')
+            f1_sr = f1_score(np.ravel(y_test.to_numpy()), predicted_sr)
+
+            registered_representations_test.append(
+                [accepted_features_sr.copy(), len(accepted_features_sr.copy()), f1_sr, rod_sr])
+            registered_representations_train.append(
+                [accepted_features_sr.copy(), len(accepted_features_sr.copy()), test_scores_sr.mean(),
+                 rod_scores_sr.mean()])
+            unique_representations.append(accepted_features_sr.copy())
+
+            print(transformed_train_sr.shape, f1_sr, rod_sr, accepted_features_sr)
+        else:
+            pass
+
+    # Now sequential with replacement
+
+    shuffled_columns = random.shuffle(range(transformed_train.shape[1]))
+    selected_ids_sr = []
+    for d in shuffled_columns:
+        if transformed_train.shape[1] > len(selected_ids_sr) + 1:
+            selected_ids_sr.extend([d])
+            transformed_train_sqr = np.delete(transformed_train, selected_ids_sr, 1)
+            transformed_test_sqr = np.delete(transformed_test, selected_ids_sr, 1)
+            accepted_features_sqr = [f for idf, f in enumerate(accepted_features) if idf not in selected_ids_sr]
+            accepted_features_sqr.sort()
+
+            if accepted_features_sqr not in unique_representations:
+                test_scores_sqr = cross_val_score(complete_clf, transformed_train_sqr, np.ravel(y_train.to_numpy()), cv=5,
+                                                 scoring='f1', n_jobs=-1)
+                rod_scores_sqr = cross_val_score(complete_clf, transformed_train_sqr, np.ravel(y_train.to_numpy()), cv=5,
+                                                scoring=rod_score, n_jobs=-1)
+
+                complete_clf.fit(transformed_train_sqr, np.ravel(y_train.to_numpy()))
+                predicted_sqr = complete_clf.predict(transformed_test_sqr)
+                predicted_sqr_proba = complete_clf.predict_proba(transformed_test_sqr)[:, 1]
+                rod_sqr = ROD.ROD(y_pred=predicted_sqr_proba, sensitive=X_test.loc[:, ['sex']],
+                                 admissible=X_test.loc[:, admissible_features],
+                                 protected=' Female', name='single_b_adult')
+                f1_sqr = f1_score(np.ravel(y_test.to_numpy()), predicted_sqr)
+
+                registered_representations_test.append(
+                    [accepted_features_sqr.copy(), len(accepted_features_sqr.copy()), f1_sqr, rod_sqr])
+                registered_representations_train.append(
+                    [accepted_features_sqr.copy(), len(accepted_features_sqr.copy()), test_scores_sqr.mean(),
+                     rod_scores_sqr.mean()])
+                unique_representations.append(accepted_features_sqr.copy())
+
+                print(transformed_train_sqr.shape, f1_sqr, rod_sqr, accepted_features_sqr)
+
+        else:
+            pass
+
+    # Now sequential with replacement
+
+    shuffled_columns = random.shuffle(range(transformed_train.shape[1]))
+    selected_ids_sqr = []
+    for d in shuffled_columns:
+        if transformed_train.shape[1] > len(selected_ids_sqr) + 1:
+            selected_ids_sqr.extend([d])
+            transformed_train_sqwr = np.delete(transformed_train, selected_ids_sqr, 1)
+            transformed_test_sqwr = np.delete(transformed_test, selected_ids_sqr, 1)
+            accepted_features_sqwr = [f for idf, f in enumerate(accepted_features) if idf not in selected_ids_sqr]
+            accepted_features_sqwr.sort()
+
+            if accepted_features_sqwr not in unique_representations:
+                test_scores_sqwr = cross_val_score(complete_clf, transformed_train_sqwr, np.ravel(y_train.to_numpy()),
+                                                  cv=5,
+                                                  scoring='f1', n_jobs=-1)
+                rod_scores_sqwr = cross_val_score(complete_clf, transformed_train_sqwr, np.ravel(y_train.to_numpy()),
+                                                 cv=5,
+                                                 scoring=rod_score, n_jobs=-1)
+
+                complete_clf.fit(transformed_train_sqwr, np.ravel(y_train.to_numpy()))
+                predicted_sqwr = complete_clf.predict(transformed_test_sqwr)
+                predicted_sqwr_proba = complete_clf.predict_proba(transformed_test_sqwr)[:, 1]
+                rod_sqwr = ROD.ROD(y_pred=predicted_sqwr_proba, sensitive=X_test.loc[:, ['sex']],
+                                  admissible=X_test.loc[:, admissible_features],
+                                  protected=' Female', name='single_b_adult')
+                f1_sqwr = f1_score(np.ravel(y_test.to_numpy()), predicted_sqwr)
+
+                registered_representations_test.append(
+                    [accepted_features_sqwr.copy(), len(accepted_features_sqwr.copy()), f1_sqwr, rod_sqwr])
+                registered_representations_train.append(
+                    [accepted_features_sqwr.copy(), len(accepted_features_sqwr.copy()), test_scores_sqwr.mean(),
+                     rod_scores_sqwr.mean()])
+                unique_representations.append(accepted_features_sqwr.copy())
+
+                print(transformed_train_sqwr.shape, f1_sqwr, rod_sqwr, accepted_features_sqwr)
+            else:
+                selected_ids_sqr.remove(d)
+        else:
+            pass
+
+    # Now SBFS
+
     selected_ids_r = []
-    for idd, d in enumerate(range(transformed_train.shape[1])):
+    for d in range(transformed_train.shape[1]):
         if transformed_train.shape[1] > len(selected_ids_r) + 1:
-            selected_ids_r.extend([idd])
+            selected_ids_r.extend([d])
             transformed_train_cr = np.delete(transformed_train, selected_ids_r, 1)
             transformed_test_cr = np.delete(transformed_test, selected_ids_r, 1)
             accepted_features_cr = [f for idf, f in enumerate(accepted_features) if idf not in selected_ids_r]
@@ -386,8 +509,11 @@ for train_index, test_index in kf1.split(adult_df):
                                    admissible=X_test.loc[:, admissible_features],
                                    protected=' Female', name='backward_adult')
                 f1_b = f1_score(np.ravel(y_test.to_numpy()), predicted_b)
-                registered_representations.append(
+
+                registered_representations_test.append(
                     [accepted_features_cr.copy(), len(accepted_features_cr.copy()), f1_b, rod_b])
+                registered_representations_train.append(
+                    [accepted_features_cr.copy(), len(accepted_features_cr.copy()), test_scores_cr.mean(), rod_scores_cr.mean()])
                 unique_representations.append(accepted_features_cr.copy())
 
                 print(transformed_train_cr.shape, f1_b, rod_b, accepted_features_cr)
@@ -419,8 +545,11 @@ for train_index, test_index in kf1.split(adult_df):
                                             admissible=X_test.loc[:, admissible_features],
                                             protected=' Female', name='backward_adult')
                             f1_a = f1_score(np.ravel(y_test.to_numpy()), predicted_a)
-                            registered_representations.append(
+
+                            registered_representations_test.append(
                                 [accepted_features_a.copy(), len(accepted_features_a.copy()), f1_a, rod_a])
+                            registered_representations_train.append(
+                                [accepted_features_a.copy(), len(accepted_features_a.copy()), test_scores_a.mean(), rod_scores_a.mean()])
                             unique_representations.append(accepted_features_a.copy())
 
                             if rod_scores_a.mean() > rod_complete:
@@ -431,9 +560,9 @@ for train_index, test_index in kf1.split(adult_df):
                         else:
                             selected_ids_r.extend([ida])
                 else:
-                    selected_ids_r.remove(idd)
+                    selected_ids_r.remove(d)
             else:
-                selected_ids_r.remove(idd)
+                selected_ids_r.remove(d)
         else:
             pass
 
@@ -453,7 +582,8 @@ for train_index, test_index in kf1.split(adult_df):
 
     # Compute pareto front
 
-    all_visited = np.asarray(registered_representations)
+    all_visited = np.asarray(registered_representations_train)
+    all_visited_test = np.asarray(registered_representations_test)
     scores = all_visited[:, [2, 3]]
 
     def identify_pareto(scores):
@@ -490,7 +620,7 @@ for train_index, test_index in kf1.split(adult_df):
         dist[idx] = norm(i - ideal_point)
 
     min_dist = np.argmin(dist)
-    selected_representation = all_visited[pareto[min_dist]]
+    selected_representation = all_visited_test[pareto[min_dist]]
 
     # ########## NSGAII ##############
     # all_allowed_train = all_allowed_train[:, 1:]
@@ -535,15 +665,27 @@ for train_index, test_index in kf1.split(adult_df):
 
     print(runtimes)
 
-    visited_representations = pd.DataFrame(registered_representations, columns=['Representation', 'Size', 'F1', 'ROD'])
-    visited_representations['Fold'] = count + 1
+    visited_representations_train = pd.DataFrame(registered_representations_train, columns=['Representation', 'Size', 'F1', 'ROD'])
+    visited_representations_train['Fold'] = count + 1
+
+    visited_representations_test = pd.DataFrame(registered_representations_test,
+                                                 columns=['Representation', 'Size', 'F1', 'ROD'])
+    visited_representations_test['Fold'] = count + 1
 
     if CF:
-        visited_representations.to_csv(path_or_buf=results_path + '/adult_complete_visited_representations_complexity_' + str(complexity)
+        visited_representations_train.to_csv(path_or_buf=results_path + '/adult_complete_visited_representations_train_complexity_' + str(complexity)
                                                    + '_CF_' + str(count+1) + '.csv', index=False)
+        visited_representations_test.to_csv(
+            path_or_buf=results_path + '/adult_complete_visited_representations_test_complexity_' + str(complexity)
+                        + '_CF_' + str(count + 1) + '.csv', index=False)
     else:
-        visited_representations.to_csv(
-            path_or_buf=results_path + '/adult_complete_visited_representations_complexity_' + str(complexity) + '_' + str(count + 1) + '.csv', index=False)
+        visited_representations_train.to_csv(
+            path_or_buf=results_path + '/adult_complete_visited_representations_train_complexity_' + str(complexity) + '_' + str(count + 1) + '.csv',
+            index=False)
+        visited_representations_test.to_csv(
+            path_or_buf=results_path + '/adult_complete_visited_representations_test_complexity_' + str(
+                complexity) + '_' + str(count + 1) + '.csv',
+            index=False)
 
     print('ROD backward ' + ': ' + str(selected_representation[3]))
     print('F1 backward ' + ': ' + str(selected_representation[2]))
