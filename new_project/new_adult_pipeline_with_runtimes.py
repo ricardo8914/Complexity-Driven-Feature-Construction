@@ -172,7 +172,7 @@ for train_index, test_index in kf1.split(adult_df):
             j = (candidate.get_name()).strip()
 
             feature_clf = LogisticRegression(penalty='l2', C=1, solver='lbfgs', class_weight='balanced',
-                                             max_iter=100000, multi_class='auto')
+                                             max_iter=100000, multi_class='auto', n_jobs=-1)
 
             result = False
 
@@ -236,7 +236,7 @@ for train_index, test_index in kf1.split(adult_df):
             mask = [x for x in transformations2_generate_idx]
 
         test_clf = LogisticRegression(penalty='l2', C=1, solver='lbfgs', class_weight='balanced',
-                                      max_iter=100000, multi_class='auto')
+                                      max_iter=100000, multi_class='auto', n_jobs=-1)
 
         print('round 1: Try to improve objective in 1 direction : ')
 
@@ -348,7 +348,7 @@ for train_index, test_index in kf1.split(adult_df):
     f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 
     complete_clf = LogisticRegression(penalty='l2', C=1, solver='lbfgs', class_weight='balanced',
-                                       max_iter=100000, multi_class='auto')
+                                       max_iter=100000, multi_class='auto', n_jobs=-1)
 
     test_scores_c = cross_val_score(complete_clf, transformed_train, np.ravel(y_train.to_numpy()), cv=5, scoring='f1', n_jobs=-1)
     rod_scores_c = cross_val_score(complete_clf, transformed_train, np.ravel(y_train.to_numpy()), cv=5,
