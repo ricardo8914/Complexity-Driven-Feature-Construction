@@ -12,14 +12,11 @@ from sklearn.metrics import accuracy_score, f1_score
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
 from sklearn.metrics import make_scorer
 from sklearn.linear_model import LogisticRegression
-from sklearn.inspection import permutation_importance
-from sklearn.model_selection import train_test_split
 from fastsklearnfeature.interactiveAutoML.fair_measure import true_positive_rate_score
-from d_separation import d_separation
+from causality.d_separation import d_separation
 from sklearn.metrics import log_loss
-from test_evolutionary import evolution
+from tests.test_evolutionary import evolution
 from tqdm import tqdm
-import re
 import ROD
 import sys
 sys.path.insert(0, '/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')

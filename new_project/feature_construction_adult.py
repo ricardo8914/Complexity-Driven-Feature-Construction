@@ -18,14 +18,14 @@ import ROD
 
 home = str(Path.home())
 
-# c = Config.Config
-#
-# print(c.load())
+c = Config.Config
+
+print(c.load())
 
 #data_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data'
 adult_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data'
 
-adult_df = pd.read_csv(adult_path + '/adult.csv', sep=';', header=0)
+adult_df = pd.read_csv(adult_path + '/adult.csv', sep=',', header=0)
 
 def label(row):
    if row['class'] == ' <=50K' :

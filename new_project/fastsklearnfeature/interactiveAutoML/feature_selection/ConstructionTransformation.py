@@ -10,10 +10,13 @@ from fastsklearnfeature.candidates.CandidateFeature import CandidateFeature
 from fastsklearnfeature.transformations.IdentityTransformation import IdentityTransformation
 from fastsklearnfeature.transformations.MinMaxScalingTransformation import MinMaxScalingTransformation
 from fastsklearnfeature.transformations.MinusTransformation import MinusTransformation
+from fastsklearnfeature.candidate_generation.feature_space.division import get_transformation_for_division
 
 class ConstructionTransformer(BaseEstimator, TransformerMixin):
 
-    def __init__(self, c_max=2, max_time_secs=None, scoring=make_scorer(f1_score, average='micro'), model=None, parameter_grid={'penalty': ['l2'], 'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000], 'solver': ['lbfgs'], 'class_weight': ['balanced'], 'max_iter': [10000], 'multi_class':['auto']}, n_jobs=None, epsilon=0.0, feature_names=None, feature_is_categorical=None, cv=5):
+    def __init__(self, c_max=2, max_time_secs=None, scoring=make_scorer(f1_score, average='micro'), model=None,
+                 parameter_grid={'penalty': ['l2'], 'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000], 'solver': ['lbfgs'], 'class_weight': ['balanced'], 'max_iter': [10000], 'multi_class':['auto']},
+                 n_jobs=None, epsilon=0.0, feature_names=None, feature_is_categorical=None, cv=5, transformation_producer=get_transformation_for_division):
         self.c_max = c_max
         self.max_time_secs = max_time_secs
         self.scoring = scoring
@@ -24,6 +27,7 @@ class ConstructionTransformer(BaseEstimator, TransformerMixin):
         self.feature_names = feature_names
         self.feature_is_categorical = feature_is_categorical
         self.cv = cv
+        self.transformation_producer = transformation_producer
 
 
     def fit(self, X, y=None):
@@ -33,7 +37,8 @@ class ConstructionTransformer(BaseEstimator, TransformerMixin):
                                                       score=self.scoring, c_max=self.c_max, folds=self.cv,
                                                       max_seconds=self.max_time_secs, classifier=self.model.__class__,
                                                       grid_search_parameters=self.parameter_grid, n_jobs=self.n_jobs,
-                                                      epsilon=self.epsilon, save_logs=False, remove_parents=True)
+                                                      epsilon=self.epsilon, save_logs=False, remove_parents=True,
+                                                 transformation_producer=self.transformation_producer)
 
         fe.run()
 

@@ -37,7 +37,8 @@ warnings.filterwarnings("ignore", message="divide by zero encountered in true_di
 
 
 class ComplexityDrivenFeatureConstruction(CachedEvaluationFramework):
-    def __init__(self, dataset_config, classifier=LogisticRegression, grid_search_parameters={'penalty': ['l2'],
+    def __init__(self, dataset_config, classifier=LogisticRegression,
+                 grid_search_parameters={'penalty': ['l2'],
                                                                                                 'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
                                                                                                 'solver': ['lbfgs'],
                                                                                                 'class_weight': ['balanced'],

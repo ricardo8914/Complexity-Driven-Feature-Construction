@@ -16,7 +16,7 @@ def learn_MB(df, name):
     f1 = file.readlines()
     for line in f1:
         l = str(line).strip("\n'")
-        l = l.replace('.','-')
+        l = l.replace('.', '-')
         mb.extend([l])
 
     return mb

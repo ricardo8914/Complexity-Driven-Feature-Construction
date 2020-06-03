@@ -1,19 +1,16 @@
 import pandas as pd
 from pathlib import Path
-from d_separation import d_separation
+from causality.d_separation import d_separation
 import numpy as np
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score, f1_score
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
 from sklearn.metrics import make_scorer
 from sklearn.linear_model import LogisticRegression
-from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
 from fastsklearnfeature.interactiveAutoML.fair_measure import true_positive_rate_score
 from sklearn.metrics import log_loss
@@ -22,7 +19,6 @@ import matplotlib.pyplot as plt
 import ROD
 import sys
 sys.path.insert(0, '/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
-from methods.capuchin import repair_dataset
 
 home = str(Path.home())
 

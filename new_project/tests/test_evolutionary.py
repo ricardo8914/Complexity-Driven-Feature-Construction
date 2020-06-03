@@ -4,22 +4,16 @@ from pymoo.model.problem import Problem
 from pymoo.factory import get_crossover, get_sampling, get_termination
 from pymoo.optimize import minimize
 from pymoo.algorithms.nsga2 import NSGA2
-from sklearn.metrics import make_scorer
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import roc_auc_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import f1_score
 import warnings
-import matplotlib.pyplot as plt
+import math
 
 warnings.filterwarnings("ignore")
 import pandas as pd
-import time
 import numpy as np
 from fastsklearnfeature.interactiveAutoML.feature_selection.MaskSelection import MaskSelection
-from fastsklearnfeature.interactiveAutoML.fair_measure import true_positive_rate_score
-from pymoo.visualization.scatter import Scatter
 from sklearn.base import BaseEstimator
 from sklearn.feature_selection.base import SelectorMixin
 
@@ -33,7 +27,7 @@ class MaskSelection(BaseEstimator, SelectorMixin):
     def _get_support_mask(self):
         return self.mask
 
-def evolution(X_train, y_train, scorers=[], cv_splitter=5, max_search_time=60):
+def evolution(X_train, y_train, scorers=[], cv_splitter=3, max_search_time=60):
 
 	def f_clf1(mask):
 		model = Pipeline([
@@ -90,9 +84,7 @@ def evolution(X_train, y_train, scorers=[], cv_splitter=5, max_search_time=60):
 
 	problem = MyProblem()
 
-
-
-	population_size = 30
+	population_size = math.ceil(math.sqrt(X_train.shape[1]))
 	cross_over_rate = 0.9
 	algorithm = NSGA2(pop_size=population_size,
 					  sampling=get_sampling("bin_random"),

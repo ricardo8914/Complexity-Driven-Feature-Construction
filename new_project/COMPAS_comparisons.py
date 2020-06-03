@@ -18,10 +18,9 @@ from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import cross_val_score
 import sys
 from pathlib import Path
-sys.path.insert(0,'/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
+#sys.path.insert(0,'/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
 from ROD import ROD
-from measures.logROD import LROD
-from methods.capuchin import repair_dataset
+from capuchin import repair_dataset
 home = str(Path.home())
 
 

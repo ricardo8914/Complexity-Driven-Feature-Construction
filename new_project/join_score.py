@@ -9,15 +9,13 @@ from sklearn.metrics import f1_score
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
 from sklearn.metrics import make_scorer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from d_separation import d_separation
+from causality.d_separation import d_separation
 import multiprocessing as mp
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 import ROD
 from sklearn.model_selection import KFold
 import time
-from test_evolutionary import evolution
 import sys
 
 sys.path.insert(0, '/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')

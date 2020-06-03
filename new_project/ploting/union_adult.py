@@ -11,7 +11,6 @@ results_path = home + '/Finding-Fair-Representations-Through-Feature-Constructio
 
 results = pd.read_csv(results_path + '/complete_adult_results_complexity_4.csv')
 results.loc[results['Method'] == 'FC_SFFS_backward', 'Method'] = 'FC_SFFS_SBFS'
-
 results_genetic = pd.read_csv(results_path + '/adult_genetic_complexity_4.csv')
 
 adult_union = pd.concat([results, results_genetic], ignore_index=True)

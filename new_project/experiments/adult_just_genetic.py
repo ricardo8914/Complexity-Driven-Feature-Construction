@@ -31,17 +31,6 @@ def label(row):
         return 1
 
 
-def generate_binned_df(df):
-    columns2_drop = []
-    df_ = df.copy()
-    for i in list(df_):
-        if i not in [target, 'outcome'] and (df_[i].dtype != object and len(df_[i].unique()) > 4):
-            out = pd.cut(df_[i], bins=2)
-            df_.loc[:, i] = out.astype(str)
-
-    return df_
-
-
 sensitive_feature = 'sex'
 target = 'target'
 inadmissible_features = ['marital-status']

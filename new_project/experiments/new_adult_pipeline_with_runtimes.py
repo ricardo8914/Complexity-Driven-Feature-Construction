@@ -9,7 +9,7 @@ from sklearn.metrics import f1_score
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
 from sklearn.metrics import make_scorer
 from sklearn.linear_model import LogisticRegression
-from d_separation import d_separation
+from causality.d_separation import d_separation
 import multiprocessing as mp
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 import ROD
