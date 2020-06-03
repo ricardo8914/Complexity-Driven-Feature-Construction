@@ -10,13 +10,12 @@ from numpy.linalg import norm
 home = str(Path.home())
 
 results_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/intermediate_results'
-visited_train = pd.read_csv(results_path + '/adult_complete_visited_representations_train_complexity_4_2.csv')
+visited_train = pd.read_csv(results_path + '/COMPAS_complete_visited_representations_train_complexity_5_2.csv')
 
 
-v = visited_train.loc[: , 'ROD'].to_numpy()
+v = visited_train.loc[:, 'ROD'].to_numpy()
 normalized = (v - v.min()) / (0 - v.min())
-visited_train.loc[: , 'ROD'] = normalized
-
+visited_train.loc[:, 'ROD'] = normalized
 
 def identify_pareto(scores):
     # Count number of items
@@ -42,7 +41,7 @@ def identify_pareto(scores):
 scores = visited_train.loc[:, ['ROD','F1']].to_numpy()
 
 pareto = identify_pareto(scores)
-pareto_front=scores[pareto]
+pareto_front = scores[pareto]
 
 x_pareto = pareto_front[:, 0]
 y_pareto = pareto_front[:, 1]
@@ -70,6 +69,8 @@ fig, ax = plt.subplots()
 
 for idx, i in enumerate(pareto_front):
     ax.scatter(x_pareto[idx], y_pareto[idx], color=pareto_colors[idx])
+
+#ax.scatter(scores[:, 0], scores[:, 1])
 
 
 ax.set(ylim=(0, 1))

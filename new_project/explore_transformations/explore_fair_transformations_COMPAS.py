@@ -74,7 +74,7 @@ for i in all_2_combinations:
     f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 
     column_transformation = Pipeline([('new_construction',
-                                       ConstructionTransformer(c_max=6, max_time_secs=1000000, scoring=f1, n_jobs=7,
+                                       ConstructionTransformer(c_max=5, max_time_secs=1000000, scoring=f1, n_jobs=10,
                                                                model=LogisticRegression(),
                                                                 parameter_grid={'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
                                                                'class_weight': ['balanced'], 'max_iter': [100000],

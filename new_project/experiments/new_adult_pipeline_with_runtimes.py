@@ -9,29 +9,24 @@ from sklearn.metrics import f1_score
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
 from sklearn.metrics import make_scorer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 from d_separation import d_separation
 import multiprocessing as mp
-from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 import ROD
 from sklearn.model_selection import KFold
 from sklearn.model_selection import GridSearchCV
 from numpy.linalg import norm
-import random
 import time
-from test_evolutionary import evolution
 import sys
-
 sys.path.insert(0, '/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
-from methods.capuchin import repair_dataset
+from capuchin import repair_dataset
 
 home = str(Path.home())
 
 adult_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data'
 results_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/intermediate_results'
 
-adult_df = pd.read_csv(adult_path + '/adult.csv', sep=';', header=0)
+adult_df = pd.read_csv(adult_path + '/adult.csv', sep=',', header=0)
 
 
 def label(row):
@@ -45,8 +40,8 @@ def generate_binned_df(df):
     columns2_drop = []
     df_ = df.copy()
     for i in list(df_):
-        if i not in ['target', 'outcome'] and (df_[i].dtype != np.dtype('O') and len(df_[i].unique()) > 4):
-            out, bins = pd.cut(df_[i], bins=2, retbins=True, duplicates='drop')
+        if i not in ['target', 'outcome'] and (df_[i].dtype != object and len(df_[i].unique()) > 4):
+            out = pd.cut(df_[i], bins=2)
             df_.loc[:, i] = out.astype(str)
 
     return df_
@@ -65,10 +60,10 @@ all_features.remove(target)
 all_2_combinations = list(itertools.combinations(all_features, 2))
 
 complexity = 4
-CF = False
+CF = True
 count = 0
 method_list = []
-kf1 = KFold(n_splits=5, random_state=42)
+kf1 = KFold(n_splits=5, random_state=42, shuffle=True)
 for train_index, test_index in kf1.split(adult_df):
 
     runtimes = [len(all_2_combinations), complexity]
@@ -142,7 +137,7 @@ for train_index, test_index in kf1.split(adult_df):
         features2_build_mask = ([False] * len(features2_build_num)) + ([True] * len(features2_build_cat))
 
         column_transformation = Pipeline([('new_construction',
-                                           ConstructionTransformer(c_max=complexity, max_time_secs=1000000, scoring=f1, n_jobs=7,
+                                           ConstructionTransformer(c_max=complexity, max_time_secs=1000000, scoring=f1, n_jobs=4,
                                                                    model=LogisticRegression(),
                                                                    parameter_grid={'penalty': ['l2'], 'C': [1],
                                                                                    'solver': ['lbfgs'],
@@ -220,7 +215,7 @@ for train_index, test_index in kf1.split(adult_df):
         if CF:
             start_time_CF = time.time()
 
-            pool = mp.Pool(7)
+            pool = mp.Pool(4)
             results = pool.map(causal_filter, transformations2_generate)
             pool.close()
 
@@ -234,6 +229,8 @@ for train_index, test_index in kf1.split(adult_df):
 
             mask = [x for idx, x in enumerate(transformations2_generate_idx) if accepted_list[idx]]
             filtered_transformations += len(mask)
+
+            print('Filtered Transformations: ' + str(len(transformations2_generate_idx)-len(mask)))
         else:
             time_2_CF += 0
             mask = [x for x in transformations2_generate_idx]

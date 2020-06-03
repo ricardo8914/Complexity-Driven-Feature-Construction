@@ -9,25 +9,19 @@ from sklearn.metrics import f1_score
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
 from sklearn.metrics import make_scorer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from d_separation import d_separation
+from causality.d_separation import d_separation
 import multiprocessing as mp
-from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 import ROD
+from numpy.linalg import norm
 from sklearn.model_selection import KFold
-from test_evolutionary import evolution
-import sys
-
-sys.path.insert(0, '/Users/ricardosalazar/Finding-Fair-Representations-Through-Feature-Construction/Code')
-from methods.capuchin import repair_dataset
+from new_project.tests.test_evolutionary import evolution
+import time
 
 home = str(Path.home())
 
 adult_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data'
 results_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/intermediate_results'
-
-adult_df = pd.read_csv(adult_path + '/adult.csv', sep=';', header=0)
+adult_df = pd.read_csv(adult_path + '/adult.csv', sep=',', header=0)
 
 
 def label(row):
@@ -41,8 +35,8 @@ def generate_binned_df(df):
     columns2_drop = []
     df_ = df.copy()
     for i in list(df_):
-        if i not in ['target', 'outcome'] and (df_[i].dtype != np.dtype('O') and len(df_[i].unique()) > 4):
-            out, bins = pd.cut(df_[i], bins=2, retbins=True, duplicates='drop')
+        if i not in [target, 'outcome'] and (df_[i].dtype != object and len(df_[i].unique()) > 4):
+            out = pd.cut(df_[i], bins=2)
             df_.loc[:, i] = out.astype(str)
 
     return df_
@@ -61,7 +55,12 @@ all_features.remove(target)
 all_2_combinations = list(itertools.combinations(all_features, 2))
 
 count = 0
+complexity = 4
+CF = False
 method_list = []
+runtimes = []
+visited_train = []
+visited_test = []
 kf1 = KFold(n_splits=5, shuffle=True, random_state=42)
 for train_index, test_index in kf1.split(adult_df):
 
@@ -90,6 +89,7 @@ for train_index, test_index in kf1.split(adult_df):
     all_allowed_train = np.empty((X_train.shape[0], 1))
     all_allowed_test = np.empty((X_test.shape[0], 1))
     allowed_names = []
+    start_time = time.time()
     for idx, i in enumerate(all_2_combinations):
 
         features2_build = []
@@ -123,7 +123,7 @@ for train_index, test_index in kf1.split(adult_df):
         f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 
         column_transformation = Pipeline([('new_construction',
-                                           ConstructionTransformer(c_max=3, max_time_secs=1000000, scoring=f1, n_jobs=7,
+                                           ConstructionTransformer(c_max=complexity, max_time_secs=1000000, scoring=f1, n_jobs=10,
                                                                    model=LogisticRegression(),
                                                                    parameter_grid={'penalty': ['l2'], 'C': [1],
                                                                                    'solver': ['lbfgs'],
@@ -139,6 +139,8 @@ for train_index, test_index in kf1.split(adult_df):
 
         X_train_t = X_train.loc[:, features2_build].to_numpy()
         X_test_t = X_test.loc[:, features2_build].to_numpy()
+
+
 
         transformed_train_i = transformed_pipeline.fit_transform(X_train_t, np.ravel(y_train.to_numpy()))
         all_transformations = transformed_pipeline.named_steps['feature_construction'].named_steps[
@@ -195,22 +197,30 @@ for train_index, test_index in kf1.split(adult_df):
 
         unique_features.extend([(t.get_name()).strip() for t in transformations2_generate])
 
-        # pool = mp.Pool(7)
-        # results = pool.map(causal_filter, transformations2_generate)
-        # pool.close()
-        #
-        # accepted_list = list(itertools.chain(*[results]))
-        #
-        # accepted_idx = np.argwhere(np.array(accepted_list))
+        if CF:
 
-        #mask = [x for idx, x in enumerate(transformations2_generate_idx) if accepted_list[idx]]
-        mask = [x for x in transformations2_generate_idx]
+            pool = mp.Pool(7)
+            results = pool.map(causal_filter, transformations2_generate)
+            pool.close()
+
+            accepted_list = list(itertools.chain(*[results]))
+
+            accepted_idx = np.argwhere(np.array(accepted_list))
+
+            mask = [x for idx, x in enumerate(transformations2_generate_idx) if accepted_list[idx]]
+        else:
+            mask = [x for x in transformations2_generate_idx]
 
         for idj, j in enumerate(mask):
 
-            all_allowed_train = np.concatenate((all_allowed_train, transformed_train_i[:, [j]]), axis=1)
-            all_allowed_test = np.concatenate((all_allowed_test, transformed_test_i[:, [j]]), axis=1)
-            allowed_names.extend([all_names[j]])
+            if np.isnan(transformed_train_i[:, [j]]).sum() == 0 and np.isinf(transformed_test_i[:, [j]]).sum() == 0 and \
+                np.unique(transformed_train_i[:, [j]]).shape[0] > 1 and np.unique(transformed_test_i[:, [j]]).shape[0] > 1:
+
+                all_allowed_train = np.concatenate((all_allowed_train, transformed_train_i[:, [j]]), axis=1)
+                all_allowed_test = np.concatenate((all_allowed_test, transformed_test_i[:, [j]]), axis=1)
+                allowed_names.extend([all_names[j]])
+            else:
+                pass
 
     f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 
@@ -219,13 +229,15 @@ for train_index, test_index in kf1.split(adult_df):
     all_allowed_train = all_allowed_train[:, 1:]
     all_allowed_test = all_allowed_test[:, 1:]
 
+
     selected_array = evolution(all_allowed_train, np.ravel(y_train.to_numpy()),
-                               scorers=[f1, rod_score], cv_splitter=5,
-                               max_search_time=60)
+                               scorers=[f1, rod_score], cv_splitter=3)
 
     complete_clf = LogisticRegression(penalty='l2', C=1, solver='lbfgs', class_weight='balanced',
                                       max_iter=100000, multi_class='auto')
 
+    registered_representations_train = []
+    registered_representations_test = []
     for idg, g in enumerate(selected_array):
         if all_allowed_train[:, g].shape[1] > 0:
             complete_clf.fit(all_allowed_train[:, g], np.ravel(y_train.to_numpy()))
@@ -236,168 +248,84 @@ for train_index, test_index in kf1.split(adult_df):
                                   protected=' Female', name='genetic_adult')
             f1_genetic = f1_score(np.ravel(y_test.to_numpy()), predicted_genetic)
 
+            predicted_genetic_train = complete_clf.predict(all_allowed_train[:, g])
+            predicted_genetic_proba_train = complete_clf.predict_proba(all_allowed_train[:, g])[:, 1]
+            rod_genetic_train = ROD.ROD(y_pred=predicted_genetic_proba_train, sensitive=X_train.loc[:, ['sex']],
+                                  admissible=X_train.loc[:, admissible_features],
+                                  protected=' Female', name='genetic_adult')
+            f1_genetic_train = f1_score(np.ravel(y_train.to_numpy()), predicted_genetic_train)
+
             my_list = []
+
             x = np.argwhere(selected_array[idg])
             for idj, j in enumerate(x):
                 my_list.extend([x.item(idj)])
             representation = [allowed_names[i] for i in my_list]
-            method_list.append(['FC_genetic_' + str(idg), rod_genetic, f1_genetic, representation, count + 1])
-
-            print('ROD genetic ' + str(idg) + ': ' + str(rod_genetic))
-            print('F1 genetic ' + str(idg) + ': ' + str(f1_genetic))
+            registered_representations_train.append(
+                [representation, len(representation), f1_genetic_train, rod_genetic_train, count +1])
+            registered_representations_test.append(
+                [representation, len(representation), f1_genetic, rod_genetic, count +1])
         else:
             pass
 
-    fold_df = pd.DataFrame(method_list, columns=['Method', 'ROD', 'F1', 'Representation', 'Fold'])
-    fold_df.to_csv(path_or_buf=results_path + '/just_genetic_C3_' + str(count) + '.csv', index=False)
+    all_visited = np.asarray(registered_representations_train)
+    all_visited_test = np.asarray(registered_representations_test)
+    scores = all_visited[:, [2, 3]]
 
-    ########### Dropped
+    normalized_ROD = (scores[:, 1] - scores[:, 1].min()) / (0 - scores[:, 1].min())
+    scores[:, 1] = normalized_ROD
 
-    categorical_features_2 = []
-    numerical_features_2 = []
+    normalized_F1 = (scores[:, 0] - scores[:, 0].min()) / (scores[:, 0].max() - scores[:, 0].min())
+    scores[:, 0] = normalized_F1
 
-    for i in list(adult_df):
-        if i != target and i not in inadmissible_features and i != sensitive_feature and adult_df[
-            i].dtype == np.dtype('O'):
-            categorical_features_2.extend([i])
-        elif i != target and i not in inadmissible_features and i != sensitive_feature and adult_df[
-            i].dtype != np.dtype('O'):
-            numerical_features_2.extend([i])
+    pareto_front = scores
 
-    categorical_transformer_2 = Pipeline(steps=[
-        ('onehot', OneHotEncoder(handle_unknown='ignore'))])
+    ideal_point = np.asarray([1, 1])
+    dist = np.empty((pareto_front.shape[0], 1))
 
-    numerical_transformer_2 = Pipeline(steps=[
-        ('scaler', MinMaxScaler())])
+    for idx, i in enumerate(pareto_front):
+        dist[idx] = norm(i - ideal_point)
 
-    preprocessor_2 = ColumnTransformer(
-        transformers=[
-            ('cat', categorical_transformer_2, categorical_features_2),
-            ('num', numerical_transformer_2, numerical_features_2)], remainder='passthrough')
+    min_dist = np.argmin(dist)
+    selected_representation = all_visited_test[min_dist]
 
-    dropped_pipeline = Pipeline(steps=[('preprocessor', preprocessor_2),
-                                       ('clf', LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                                                  class_weight='balanced',
-                                                                  max_iter=100000, multi_class='auto'))])
+    end_time = time.time() - start_time
 
-    X_train_dropped = X_train.drop(columns=['sex', 'marital-status'])
-    X_test_dropped = X_test.drop(columns=['sex', 'marital-status'])
+    runtimes.append(['FC_NSGAII', complexity, all_allowed_train.shape[0], all_allowed_train.shape[1], end_time, count + 1])
 
-    dropped_pipeline.fit(X_train_dropped, np.ravel(y_train.to_numpy()))
-    predicted_dropped = dropped_pipeline.predict(X_test_dropped)
-    predicted_dropped_proba = dropped_pipeline.predict_proba(X_test)[:, 1]
-    rod_dropped = ROD.ROD(y_pred=predicted_dropped_proba, sensitive=X_test.loc[:, ['sex']],
-                          admissible=X_test.loc[:, admissible_features],
-                          protected=' Female', name='dropped_adult')
+    method_list.append(['FC_NSGAII', round(selected_representation[3], 2), round(selected_representation[2], 2),
+                        selected_representation[0],
+                        selected_representation[1], count + 1])
 
-    f1_dropped = f1_score(np.ravel(y_test.to_numpy()), predicted_dropped)
-
-    method_list.append(['dropped', rod_dropped, f1_dropped, admissible_features, count + 1])
-
-    print('ROD dropped ' + ': ' + str(rod_dropped))
-    print('F1 dropped ' + ': ' + str(f1_dropped))
-
-    ############################## Capuchin ####################################
-    # Remove the sensitive when training and check results --> does ROD decrease variance? : No, bad results, go back
-
-    capuchin_df = adult_df.copy()
-
-    categorical = []
-    for i in list(capuchin_df):
-        if i != 'target':
-            categorical.extend([i])
-
-    categorical_transformer_3 = Pipeline(steps=[
-        ('onehot', OneHotEncoder(handle_unknown='ignore'))])
-
-    preprocessor_3 = ColumnTransformer(
-        transformers=[
-            ('cat', categorical_transformer_3, categorical)],
-        remainder='passthrough')
-
-    capuchin_repair_pipeline = Pipeline(steps=[('generate_binned_df', FunctionTransformer(generate_binned_df)),
-                                               ('repair', FunctionTransformer(repair_dataset, kw_args={
-                                                   'admissible_attributes': admissible_features,
-                                                   'sensitive_attribute': sensitive_feature,
-                                                   'target': target}))])
-
-    capuchin_pipeline = Pipeline(steps=[('preprocessor', preprocessor_3),
-                                        ('clf', LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                                                   class_weight='balanced',
-                                                                   max_iter=100000, multi_class='auto'))])
-
-    print('Start repairing training set with capuchin')
-    to_repair = pd.concat([X_train, y_train], axis=1)
-    train_repaired = capuchin_repair_pipeline.fit_transform(to_repair)
-    print('Finished repairing training set with capuchin')
-    y_train_repaired = train_repaired.loc[:, ['target']].to_numpy()
-    X_train_repaired = train_repaired.loc[:,
-                       ['workclass', 'education', 'occupation', 'age', 'sex', 'marital-status', 'capital-gain',
-                        'capital-loss', 'hours-per-week']]
-
-    X_test_capuchin = (generate_binned_df(X_test)).loc[:,
-                      ['workclass', 'education', 'occupation', 'age', 'sex', 'marital-status',
-                       'capital-gain', 'capital-loss', 'hours-per-week']]
-
-    capuchin_pipeline.fit(X_train_repaired, np.ravel(y_train_repaired))
-    predicted_capuchin = capuchin_pipeline.predict(X_test_capuchin)
-    predicted_capuchin_proba = capuchin_pipeline.predict_proba(X_test_capuchin)[:, 1]
-    rod_capuchin = ROD.ROD(y_pred=predicted_capuchin_proba, sensitive=X_test.loc[:, ['sex']],
-                           admissible=X_test.loc[:, admissible_features],
-                           protected=' Female', name='capuchin_adult')
-
-    f1_capuchin = f1_score(np.ravel(y_test.to_numpy()), predicted_capuchin)
-
-    method_list.append(['capuchin', rod_capuchin, f1_capuchin, all_features, count + 1])
-
-    print('ROD capuchin ' + ': ' + str(rod_capuchin))
-    print('F1 capuchin ' + ': ' + str(f1_capuchin))
-
-    ##################### Original
-
-    categorical_features = []
-    numerical_features = []
-    for i in list(adult_df):
-        if i != target and adult_df[i].dtype == np.dtype('O'):
-            categorical_features.extend([i])
-        elif i != target and adult_df[i].dtype != np.dtype('O'):
-            numerical_features.extend([i])
-
-    categorical_transformer = Pipeline(steps=[
-        ('onehot', OneHotEncoder(handle_unknown='ignore'))])
-
-    numerical_transformer = Pipeline(steps=[
-        ('scaler', MinMaxScaler())])
-
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('cat', categorical_transformer, categorical_features),
-            ('num', numerical_transformer, numerical_features)], remainder='passthrough')
-
-    original_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
-                                        ('clf', LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                                                   class_weight='balanced',
-                                                                   max_iter=100000, multi_class='auto'))])
-
-    original_pipeline.fit(X_train, np.ravel(y_train.to_numpy()))
-    predicted_original = original_pipeline.predict(X_test)
-    predicted_original_proba = original_pipeline.predict_proba(X_test)[:, 1]
-    rod_original = ROD.ROD(y_pred=predicted_original_proba, sensitive=X_test.loc[:, ['sex']],
-                           admissible=X_test.loc[:, admissible_features],
-                           protected=' Female', name='original_adult')
-
-    f1_original = f1_score(np.ravel(y_test.to_numpy()), predicted_original)
-
-    method_list.append(['original', rod_original, f1_original, all_features, count + 1])
-
-    print('ROD original ' + ': ' + str(rod_original))
-    print('F1 original ' + ': ' + str(f1_original))
+    visited_train.extend(registered_representations_train)
+    visited_test.extend(registered_representations_test)
 
     count += 1
 
-summary_df = pd.DataFrame(method_list, columns=['Method', 'ROD', 'F1', 'Representation', 'Fold'])
+summary_df = pd.DataFrame(method_list, columns=['Method', 'ROD', 'F1', 'Representation', 'Size', 'Fold'])
+runtimes_df = pd.DataFrame(runtimes, columns=['Method', 'Complexity', 'Rows', 'Features', 'Runtime', 'Fold'])
+visited_train_df = pd.DataFrame(visited_train, columns=['Representation', 'Size', 'F1', 'ROD', 'Fold'])
+visited_test_df = pd.DataFrame(visited_test, columns=['Representation', 'Size', 'F1', 'ROD', 'Fold'])
+
 
 print(summary_df.groupby('Method')['ROD'].mean())
 print(summary_df.groupby('Method')['F1'].mean())
 
-summary_df.to_csv(path_or_buf=results_path + '/summary_just_genetic_30pop.csv', index=False)
+if CF:
+    summary_df.to_csv(path_or_buf=results_path + '/adult_genetic_complexity_' + str(complexity) + '_CF' + '.csv', index=False)
+    runtimes_df.to_csv(path_or_buf=results_path + '/runtimes_adult_genetic_complexity_' + str(complexity) + '_CF' + '.csv',
+                      index=False)
+    visited_train_df.to_csv(path_or_buf=results_path + '/visited_train_adult_genetic_complexity_' + str(complexity) + '_CF' + '.csv',
+                      index=False)
+    visited_test_df.to_csv(
+        path_or_buf=results_path + '/visited_test_adult_genetic_complexity_' + str(complexity) + '_CF' + '.csv',
+        index=False)
+else:
+    summary_df.to_csv(path_or_buf=results_path + '/adult_genetic_complexity_' + str(complexity) + '.csv', index=False)
+    runtimes_df.to_csv(path_or_buf=results_path + '/runtimes_adult_genetic_complexity_' + str(complexity) + '.csv', index=False)
+    visited_train_df.to_csv(
+        path_or_buf=results_path + '/visited_train_adult_genetic_complexity_' + str(complexity) + '.csv',
+        index=False)
+    visited_test_df.to_csv(
+        path_or_buf=results_path + '/visited_test_adult_genetic_complexity_' + str(complexity) + '.csv',
+        index=False)

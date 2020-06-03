@@ -48,7 +48,7 @@ complexity = 4
 CF = False
 count = 0
 method_list = []
-kf1 = KFold(n_splits=5, random_state=42)
+kf1 = KFold(n_splits=5, random_state=42, shuffle=True)
 for train_index, test_index in kf1.split(adult_df):
 
     train_df = adult_df.iloc[train_index]
@@ -56,11 +56,11 @@ for train_index, test_index in kf1.split(adult_df):
 
     X_train = train_df.loc[:, all_features]
 
-    y_train = train_df.loc[:, 'target']
+    y_train = train_df.loc[:, target]
 
     X_test = test_df.loc[:, all_features]
 
-    y_test = test_df.loc[:, 'target']
+    y_test = test_df.loc[:, target]
 
     rod_score = make_scorer(ROD.ROD, greater_is_better=True, needs_proba=True,
                             sensitive=X_train.loc[:, sensitive_feature],
@@ -96,7 +96,7 @@ for train_index, test_index in kf1.split(adult_df):
                                                             max_iter=100000, multi_class='auto'))])
 
     original_train = preprocessor.fit_transform(X_train).todense()
-    original_test = preprocessor.fit_transform(X_test).todense()
+    original_test = preprocessor.transform(X_test).todense()
 
     feature_names = list(preprocessor.transformers_[0][1].named_steps['onehot'].get_feature_names(categorical_features))
     feature_names.extend(numerical_features)
@@ -139,15 +139,22 @@ for train_index, test_index in kf1.split(adult_df):
         #test_clf.fit(transformed_train, np.ravel(y_train.to_numpy()))
         predicted_ff = cv_scores.predict(transformed_test)
         predicted_ff_proba = cv_scores.predict_proba(transformed_test)[:, 1]
-        rod_ff = ROD.ROD(y_pred=predicted_ff_proba, sensitive=X_test.loc[:, ['sex']],
+        rod_ff = ROD.ROD(y_pred=predicted_ff_proba, sensitive=X_test.loc[:, [sensitive_feature]],
                          admissible=X_test.loc[:, admissible_features],
                          protected=' Female', name='backward_adult')
         f1_ff = f1_score(np.ravel(y_test.to_numpy()), predicted_ff)
 
+        predicted_ff_train = cv_scores.predict(transformed_train)
+        predicted_ff_proba_train = cv_scores.predict_proba(transformed_train)[:, 1]
+        rod_ff_train = ROD.ROD(y_pred=predicted_ff_proba_train, sensitive=X_train.loc[:, [sensitive_feature]],
+                         admissible=X_train.loc[:, admissible_features],
+                         protected=' Female', name='backward_adult')
+        f1_ff_train = f1_score(np.ravel(y_train.to_numpy()), predicted_ff_train)
+
         registered_representations_test.append(
             [accepted_features.copy(), len(accepted_features.copy()), f1_ff, rod_ff])
         registered_representations_train.append(
-            [accepted_features.copy(), len(accepted_features.copy()), test_scores, rod_scores])
+            [accepted_features.copy(), len(accepted_features.copy()), f1_ff_train, rod_ff_train])
 
         print(transformed_train.shape, f1_ff, rod_ff, accepted_features)
 
@@ -175,16 +182,22 @@ for train_index, test_index in kf1.split(adult_df):
                         #test_clf.fit(transformed_train_r, np.ravel(y_train.to_numpy()))
                         predicted_ff_r = cv_scores.predict(transformed_test_r)
                         predicted_ff_r_proba = cv_scores.predict_proba(transformed_test_r)[:, 1]
-                        rod_ff_r = ROD.ROD(y_pred=predicted_ff_r_proba, sensitive=X_test.loc[:, ['sex']],
+                        rod_ff_r = ROD.ROD(y_pred=predicted_ff_r_proba, sensitive=X_test.loc[:, [sensitive_feature]],
                                            admissible=X_test.loc[:, admissible_features],
                                            protected=' Female', name='backward_adult')
                         f1_ff_r = f1_score(np.ravel(y_test.to_numpy()), predicted_ff_r)
 
+                        predicted_ff_r_train = cv_scores.predict(transformed_train_r)
+                        predicted_ff_r_proba_train = cv_scores.predict_proba(transformed_train_r)[:, 1]
+                        rod_ff_r_train = ROD.ROD(y_pred=predicted_ff_r_proba_train, sensitive=X_train.loc[:, [sensitive_feature]],
+                                           admissible=X_train.loc[:, admissible_features],
+                                           protected=' Female', name='backward_adult')
+                        f1_ff_r_train = f1_score(np.ravel(y_train.to_numpy()), predicted_ff_r_train)
+
                         registered_representations_test.append(
                             [accepted_features_r.copy(), len(accepted_features_r.copy()), f1_ff_r, rod_ff_r])
                         registered_representations_train.append(
-                            [accepted_features_r.copy(), len(accepted_features_r.copy()), test_scores_r,
-                             rod_scores_r])
+                            [accepted_features_r.copy(), len(accepted_features_r.copy()), f1_ff_r_train, rod_ff_r_train])
 
                         if test_scores_r > global_F1:
                             global_F1 = test_scores_r
@@ -198,6 +211,7 @@ for train_index, test_index in kf1.split(adult_df):
             if len(selected_ids) > 0:
                 transformed_train = np.delete(transformed_train, selected_ids, 1)
                 transformed_test = np.delete(transformed_test, selected_ids, 1)
+                accepted_ids = [idf for idf, f in enumerate(accepted_features) if idf not in selected_ids]
                 accepted_features = [f for idf, f in enumerate(accepted_features) if idf not in selected_ids]
             else:
                 pass
@@ -248,16 +262,22 @@ for train_index, test_index in kf1.split(adult_df):
                 #complete_clf.fit(transformed_train_cr, np.ravel(y_train.to_numpy()))
                 predicted_b = cv_scores.predict(transformed_test_cr)
                 predicted_b_proba = cv_scores.predict_proba(transformed_test_cr)[:, 1]
-                rod_b = ROD.ROD(y_pred=predicted_b_proba, sensitive=X_test.loc[:, ['sex']],
+                rod_b = ROD.ROD(y_pred=predicted_b_proba, sensitive=X_test.loc[:, [sensitive_feature]],
                                 admissible=X_test.loc[:, admissible_features],
                                 protected=' Female', name='backward_adult')
                 f1_b = f1_score(np.ravel(y_test.to_numpy()), predicted_b)
 
+                predicted_b_train = cv_scores.predict(transformed_train_cr)
+                predicted_b_proba_train = cv_scores.predict_proba(transformed_train_cr)[:, 1]
+                rod_b_train = ROD.ROD(y_pred=predicted_b_proba_train, sensitive=X_train.loc[:, [sensitive_feature]],
+                                admissible=X_train.loc[:, admissible_features],
+                                protected=' Female', name='backward_adult')
+                f1_b_train = f1_score(np.ravel(y_train.to_numpy()), predicted_b_train)
+
                 registered_representations_test.append(
                     [accepted_features_cr.copy(), len(accepted_features_cr.copy()), f1_b, rod_b])
                 registered_representations_train.append(
-                    [accepted_features_cr.copy(), len(accepted_features_cr.copy()), test_scores_cr,
-                     rod_scores_cr])
+                    [accepted_features_cr.copy(), len(accepted_features_cr.copy()), f1_b_train, rod_b_train])
                 unique_representations.append(accepted_features_cr.copy())
 
                 print(transformed_train_cr.shape, f1_b, rod_b, accepted_features_cr)
@@ -281,16 +301,22 @@ for train_index, test_index in kf1.split(adult_df):
                             #complete_clf.fit(transformed_train_a, np.ravel(y_train.to_numpy()))
                             predicted_a = cv_scores.predict(transformed_test_a)
                             predicted_a_proba = cv_scores.predict_proba(transformed_test_a)[:, 1]
-                            rod_a = ROD.ROD(y_pred=predicted_a_proba, sensitive=X_test.loc[:, ['sex']],
+                            rod_a = ROD.ROD(y_pred=predicted_a_proba, sensitive=X_test.loc[:, [sensitive_feature]],
                                             admissible=X_test.loc[:, admissible_features],
                                             protected=' Female', name='backward_adult')
                             f1_a = f1_score(np.ravel(y_test.to_numpy()), predicted_a)
 
+                            predicted_a_train = cv_scores.predict(transformed_train_a)
+                            predicted_a_proba_train = cv_scores.predict_proba(transformed_train_a)[:, 1]
+                            rod_a_train = ROD.ROD(y_pred=predicted_a_proba_train, sensitive=X_train.loc[:, [sensitive_feature]],
+                                            admissible=X_train.loc[:, admissible_features],
+                                            protected=' Female', name='backward_adult')
+                            f1_a_train = f1_score(np.ravel(y_train.to_numpy()), predicted_a_train)
+
                             registered_representations_test.append(
                                 [accepted_features_a.copy(), len(accepted_features_a.copy()), f1_a, rod_a])
                             registered_representations_train.append(
-                                [accepted_features_a.copy(), len(accepted_features_a.copy()), test_scores_a,
-                                 rod_scores_a])
+                                [accepted_features_a.copy(), len(accepted_features_a.copy()), f1_a_train, rod_a_train])
                             unique_representations.append(accepted_features_a.copy())
 
                             if rod_scores_a > rod_complete:
@@ -358,13 +384,31 @@ for train_index, test_index in kf1.split(adult_df):
 
     min_dist = np.argmin(dist)
     selected_representation = all_visited_test[pareto[min_dist]]
+    selected_representation_train = all_visited[pareto[min_dist]]
 
     print('ROD original ' + ': ' + str(selected_representation[3]))
     print('F1 original ' + ': ' + str(selected_representation[2]))
 
     count += 1
 
-    method_list.append(['Original FS', selected_representation[3], selected_representation[2], selected_representation[0], selected_representation[1], count])
-    method_df = pd.DataFrame(method_list, columns=['Method', 'ROD', 'F1', 'Representation', 'Size', 'Fold'])
+    method_list.append(['Adult - test', selected_representation[3], selected_representation[2], selected_representation[0], selected_representation[1], count])
+    method_list.append(
+        ['Adult - train', selected_representation_train[3], selected_representation_train[2], selected_representation_train[0],
+         selected_representation_train[1], count])
+    method_df = pd.DataFrame(method_list, columns=['Problem - Set', 'ROD', 'F1', 'Representation', 'Size', 'Fold'])
     method_df.to_csv(
-            path_or_buf=results_path + '/original_FS.csv', index=False)
+            path_or_buf=results_path + '/adult_original_FS.csv', index=False)
+
+    registered_representations_train_df = pd.DataFrame(registered_representations_train,
+                                                       columns=['Representation', 'Size', 'F1', 'ROD'])
+
+    registered_representations_test_df = pd.DataFrame(registered_representations_test,
+                                                       columns=['Representation', 'Size', 'F1', 'ROD'])
+
+
+    registered_representations_train_df.to_csv(
+        path_or_buf=results_path + '/adult_complete_visited_representations_train_' + str(count + 1) + '.csv',
+        index=False)
+    registered_representations_test_df.to_csv(
+        path_or_buf=results_path + '/adult_complete_visited_representations_test_' + str(count + 1) + '.csv',
+        index=False)
