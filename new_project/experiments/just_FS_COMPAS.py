@@ -10,6 +10,7 @@ from sklearn.metrics import make_scorer
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 import ROD
+import time
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 from sklearn.model_selection import GridSearchCV
@@ -46,6 +47,7 @@ complexity = 4
 CF = False
 count = 0
 method_list = []
+runtimes = []
 kf1 = KFold(n_splits=5, random_state=42, shuffle=True)
 for train_index, test_index in kf1.split(COMPAS):
 
@@ -71,6 +73,7 @@ for train_index, test_index in kf1.split(COMPAS):
 
     categorical_features = []
     numerical_features = []
+    start_time = time.time()
     for i in list(COMPAS):
         if i != target and COMPAS[i].dtype == np.dtype('O'):
             categorical_features.extend([i])
@@ -398,8 +401,12 @@ for train_index, test_index in kf1.split(COMPAS):
     print('ROD original ' + ': ' + str(selected_representation[3]))
     print('F1 original ' + ': ' + str(selected_representation[2]))
 
+    end_time = time.time() - start_time
+
     count += 1
 
+    runtimes.append(
+        ['COMPAS', 'Original-FS-BS', X_train.shape[0], X_train.shape[1], end_time, selected_representation[1], count])
     method_list.append(['COMPAS - test', selected_representation[3], selected_representation[2], selected_representation[0], selected_representation[1], count])
     method_list.append(
         ['COMPAS - train', selected_representation_train[3], selected_representation_train[2], selected_representation_train[0],
@@ -407,6 +414,11 @@ for train_index, test_index in kf1.split(COMPAS):
     method_df = pd.DataFrame(method_list, columns=['Problem - Set', 'ROD', 'F1', 'Representation', 'Size', 'Fold'])
     method_df.to_csv(
             path_or_buf=results_path + '/COMPAS_original_FS.csv', index=False)
+
+    runtimes_df = pd.DataFrame(runtimes,
+                               columns=['Dataset', 'Method', 'Rows', 'Original Features', 'Runtime', 'Size', 'Fold'])
+    runtimes_df.to_csv(path_or_buf=results_path + '/runtimes_' + 'COMPAS' + '_original_FS_BS_' + '.csv',
+                       index=False)
 
     registered_representations_train_df = pd.DataFrame(registered_representations_train,
                                                        columns=['Representation', 'Size', 'F1', 'ROD'])

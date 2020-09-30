@@ -57,7 +57,7 @@ all_features.remove(target)
 all_2_combinations = list(itertools.combinations(all_features, 2))
 
 count = 0
-complexity = 3
+complexity = 4
 CF = False
 method_list = []
 runtimes = []
@@ -142,12 +142,14 @@ for train_index, test_index in kf1.split(credit_df):
         X_train_t = X_train.loc[:, features2_build].to_numpy()
         X_test_t = X_test.loc[:, features2_build].to_numpy()
 
+        try:
+            transformed_train_i = transformed_pipeline.fit_transform(X_train_t, np.ravel(y_train.to_numpy()))
+            all_transformations = transformed_pipeline.named_steps['feature_construction'].named_steps[
+                'new_construction'].all_features_set
 
-
-        transformed_train_i = transformed_pipeline.fit_transform(X_train_t, np.ravel(y_train.to_numpy()))
-        all_transformations = transformed_pipeline.named_steps['feature_construction'].named_steps[
-            'new_construction'].all_features_set
-        transformed_test_i = transformed_pipeline.transform(X_test_t)
+            transformed_test_i = transformed_pipeline.transform(X_test_t)
+        except ValueError:
+            continue
 
 
         #########Paralelize!!!!

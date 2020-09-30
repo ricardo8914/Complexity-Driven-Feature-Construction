@@ -43,13 +43,15 @@ adult_df['target'] = adult_df.apply(lambda row: label(row), axis=1)
 adult_df.drop(columns=['class', 'relationship', 'race', 'native-country', 'fnlwgt', 'education-num'], inplace=True)
 admissible_features = [i for i in list(adult_df) if
                        i not in inadmissible_features and i != sensitive_feature and i != target]
+protected = ' Female'
+dataset = 'adult'
 
 all_features = list(adult_df)
 all_features.remove(target)
 all_2_combinations = list(itertools.combinations(all_features, 2))
 
 count = 0
-complexity = 3
+complexity = 4
 method_list = []
 runtimes = []
 CF = False
@@ -61,16 +63,16 @@ for train_index, test_index in kf1.split(adult_df):
 
     X_train = train_df.loc[:, all_features]
 
-    y_train = train_df.loc[:, 'target']
+    y_train = train_df.loc[:, target]
 
     X_test = test_df.loc[:, all_features]
 
-    y_test = test_df.loc[:, 'target']
+    y_test = test_df.loc[:, target]
 
     rod_score = make_scorer(ROD.ROD, greater_is_better=True, needs_proba=True,
                             sensitive=X_train.loc[:, sensitive_feature],
                             admissible=X_train.loc[:, admissible_features],
-                            protected=' Female', name='train_adult')
+                            protected=protected, name=dataset)
 
 
     unique_features = []
@@ -149,29 +151,19 @@ for train_index, test_index in kf1.split(adult_df):
 
         unique_features.extend([(t.get_name()).strip() for t in transformations2_generate])
 
-        outcome_df = train_df.loc[:, ['target']]
+        outcome_df = train_df.loc[:, [target]]
         outcome_df.reset_index(inplace=True, drop=True)
-        outcome_df.rename(columns={'target': 'outcome'}, inplace=True)
-
-
-        # selected_df_causal = pd.DataFrame(data=all_allowed_train, columns=allowed_names)
-        # test_df_causal = pd.concat([selected_df_causal, outcome_df], axis=1)
-
-        # result = False
-        # if d_separation(test_df_causal, sensitive=sensitive_feature, target='outcome'):
-        # mb = ROD.learn_MB(test_df_causal, 'markov_fs')
-        # selected = [allowed_names.index(x) for x in mb]
+        outcome_df.rename(columns={target: 'outcome'}, inplace=True)
 
         def causal_filter(candidate):
 
             result = False
 
-            candidate_df = all_allowed_train[:, candidate]
+            candidate_df = pd.DataFrame(data=transformed_train_i[:, [candidate]], columns=[all_names[candidate]])
 
             sensitive_df = pd.DataFrame(data=X_train.loc[:, sensitive_feature].to_numpy(),
                                         columns=[sensitive_feature])
-            selected_df_causal = pd.DataFrame(data=candidate_df, columns=[allowed_names[candidate]])
-            test_df_causal = pd.concat([sensitive_df, selected_df_causal, outcome_df], axis=1)
+            test_df_causal = pd.concat([sensitive_df, candidate_df, outcome_df], axis=1)
 
             if d_separation(test_df_causal, sensitive=sensitive_feature, target='outcome'):
                 result = True
@@ -181,7 +173,7 @@ for train_index, test_index in kf1.split(adult_df):
             return result
 
         if CF:
-            pool = mp.Pool(100)
+            pool = mp.Pool(mp.cpu_count())
             results = pool.map(causal_filter, transformations2_generate_idx)
             pool.close()
 
@@ -191,7 +183,6 @@ for train_index, test_index in kf1.split(adult_df):
             new_selected = list(itertools.compress(transformations2_generate_idx, accepted_list))
 
             new_allowed_names = [x for idx, x in enumerate(allowed_names) if idx in new_selected]
-
 
             mask = [x for x in new_selected]
         else:
@@ -220,23 +211,15 @@ for train_index, test_index in kf1.split(adult_df):
     #else:
         #print(ROD.learn_MB(test_df_causal, 'markov_fs'))
 
-    cv_scores = GridSearchCV(LogisticRegression(), param_grid={
-        'penalty': ['l2'], 'C': [0.5, 1, 1.5], 'solver': ['lbfgs'],
-        'class_weight': ['balanced'],
-        'max_iter': [100000], 'multi_class': ['auto']
-    },
-                             n_jobs=-1,
-                             scoring={'F1': f1, 'ROD': rod_score}, refit='ROD', cv=5)
-
     ###### Learn feature importances
 
-    sample_idx_all = np.random.randint(all_allowed_train.shape[0], size=round(all_allowed_train.shape[0] * 0.2))
+    sample_idx_all = np.random.randint(all_allowed_train.shape[0], size=1000)
     sample_x_all = all_allowed_train[sample_idx_all, :]
     sample_y_all = np.ravel(y_train.to_numpy())
     sample_y_all = sample_y_all[sample_idx_all]
     estimator = LogisticRegression(penalty= 'l2', C= 1, solver= 'lbfgs',
         class_weight= 'balanced',
-        max_iter= 100000, multi_class= 'auto')
+        max_iter= 100000, multi_class= 'auto',n_jobs=-1)
 
     selector = RFECV(estimator, step=0.05, cv=5, n_jobs=-1, scoring='f1')
     selector = selector.fit(sample_x_all, sample_y_all)
@@ -256,14 +239,30 @@ for train_index, test_index in kf1.split(adult_df):
             temp_deleted = deleted_set.copy()
             temp_deleted.extend([candidate])
             intersection = [f for f in where_support if f not in temp_deleted]
-            sample_idx = np.random.randint(all_set.shape[0], size=round(all_set.shape[0]*0.2))
+            sample_idx = np.random.randint(all_set.shape[0], size=1000)
             sample_x = all_set[sample_idx, :]
             transformed_train_remove = sample_x[:, intersection]
             sample_y = np.ravel(y_train.to_numpy())
             sample_y = sample_y[sample_idx]
+
+            X_train_temp = X_train.iloc[sample_idx]
+            X_train_temp.reset_index(drop=True, inplace=True)
+            rod = make_scorer(ROD.ROD, greater_is_better=True, needs_proba=True,
+                                    sensitive=X_train_temp.loc[:, sensitive_feature],
+                                    admissible=X_train_temp.loc[:, admissible_features],
+                                    protected=protected, name=dataset)
+
+            cv_scores = GridSearchCV(LogisticRegression(), param_grid={
+                'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
+                'class_weight': ['balanced'],
+                'max_iter': [100000], 'multi_class': ['auto'], 'n_jobs': [-1]
+            },
+                                     n_jobs=-1,
+                                     scoring={'F1': f1, 'ROD': rod}, refit='ROD', cv=3)
+
             cv_scores.fit(transformed_train_remove, sample_y)
-            rod_scores_cr = cv_scores.cv_results_['mean_test_ROD'][0]
-            test_scores_cr = cv_scores.cv_results_['mean_test_F1'][0]
+            rod_scores_cr = cv_scores.cv_results_['mean_test_ROD'][cv_scores.best_index_]
+            test_scores_cr = cv_scores.cv_results_['mean_test_F1'][cv_scores.best_index_]
 
             r.append(
                 [accepted_features_remove, len(accepted_features_remove), test_scores_cr, rod_scores_cr, intersection])
@@ -283,14 +282,30 @@ for train_index, test_index in kf1.split(adult_df):
             temp_added = deleted_set.copy()
             temp_added.remove(candidate)
             intersection = [f for f in where_support if f not in temp_added]
-            sample_idx = np.random.randint(all_set.shape[0], size=round(all_set.shape[0]*0.2))
+            sample_idx = np.random.randint(all_set.shape[0], size=round(all_set.shape[0] * 0.2))
             sample_x = all_set[sample_idx, :]
             transformed_train_add = sample_x[:, intersection]
             sample_y = np.ravel(y_train.to_numpy())
             sample_y = sample_y[sample_idx]
+
+            X_train_temp = X_train.iloc[sample_idx]
+            X_train_temp.reset_index(drop=True, inplace=True)
+            rod = make_scorer(ROD.ROD, greater_is_better=True, needs_proba=True,
+                              sensitive=X_train_temp.loc[:, sensitive_feature],
+                              admissible=X_train_temp.loc[:, admissible_features],
+                              protected=protected, name=dataset)
+
+            cv_scores = GridSearchCV(LogisticRegression(), param_grid={
+                'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'],
+                'class_weight': ['balanced'],
+                'max_iter': [100000], 'multi_class': ['auto'], 'n_jobs': [-1]
+            },
+                                     n_jobs=-1,
+                                     scoring={'F1': f1, 'ROD': rod}, refit='ROD', cv=5)
+
             cv_scores.fit(transformed_train_add, sample_y)
-            rod_scores_cr = cv_scores.cv_results_['mean_test_ROD'][0]
-            test_scores_cr = cv_scores.cv_results_['mean_test_F1'][0]
+            rod_scores_cr = cv_scores.cv_results_['mean_test_ROD'][cv_scores.best_index_]
+            test_scores_cr = cv_scores.cv_results_['mean_test_F1'][cv_scores.best_index_]
             r.append(
                 [accepted_features_add, len(accepted_features_add), test_scores_cr, rod_scores_cr, intersection])
         else:
@@ -310,11 +325,6 @@ for train_index, test_index in kf1.split(adult_df):
         print('current size: ' + str(len(alive)))
         print('deleted: ' + str(len(deleted_set)))
 
-        if len(alive) == 2:
-            break
-        else:
-            pass
-
         #first phase
         pool = mp.Pool(mp.cpu_count())
         results_back = pool.map(eliminate, alive)
@@ -323,6 +333,11 @@ for train_index, test_index in kf1.split(adult_df):
         evaluation_back = list(itertools.chain(*[results_back]))
 
         rod_evaluation_back = [item[0] for item in evaluation_back]
+
+        if len(alive) == 2 or np.amax(np.array(rod_evaluation_back)) < global_rod:
+            break
+        else:
+            pass
 
         registered_back = []
         for item in evaluation_back:
@@ -406,10 +421,10 @@ for train_index, test_index in kf1.split(adult_df):
     #normalized = (scores[:, 1] - scores[:, 1].min()) / (0 - scores[:, 1].min())
     #scores[:, 1] = normalized
 
-    pareto = is_pareto_efficient_simple(scores)
-    where_pareto = np.argwhere(pareto)
-    #pareto_front = scores
-    pareto_front = scores[pareto]
+    #pareto = is_pareto_efficient_simple(scores)
+    #where_pareto = np.argwhere(pareto)
+    pareto_front = scores
+    #pareto_front = scores[pareto]
 
     ideal_point = np.asarray([1, 0])
     dist = np.empty((pareto_front.shape[0], 1))
@@ -418,13 +433,13 @@ for train_index, test_index in kf1.split(adult_df):
         dist[idx] = norm(i - ideal_point)
 
     min_dist = np.argmin(dist)
-    selected_indices = all_visited[where_pareto[min_dist].item()][4]
-    print('selected representation train, Index=' + str(where_pareto[min_dist].item()) + ' ,F1=' + str(all_visited[where_pareto[min_dist].item()][2]) + ', ROD =' + str(all_visited[where_pareto[min_dist].item()][3]))
+    selected_indices = all_visited[min_dist][4]
+    print('selected representation train, Index=' + str(min_dist) + ' ,F1=' + str(all_visited[min_dist][2]) + ', ROD =' + str(all_visited[min_dist][3]))
     #selected_indices = all_visited[where_pareto[min_dist].item()][4]
 
     test_clf = GridSearchCV(LogisticRegression(), param_grid={
         'penalty': ['l2'], 'C': [0.5, 1, 1.5], 'solver': ['lbfgs'],
-        'class_weight': ['balanced'],
+        'class_weight': [None, 'balanced'],
         'max_iter': [100000], 'multi_class': ['auto']
     },
                              n_jobs=-1,
@@ -436,9 +451,9 @@ for train_index, test_index in kf1.split(adult_df):
     predicted_test = test_clf.predict(all_allowed_test[:, selected_indices])
     predicted_test_proba = test_clf.predict_proba(all_allowed_test[:, selected_indices])[:, 1]
 
-    rod_test = ROD.ROD(y_pred=predicted_test_proba, sensitive=X_test.loc[:, ['sex']],
+    rod_test = ROD.ROD(y_pred=predicted_test_proba, sensitive=X_test.loc[:, [sensitive_feature]],
                     admissible=X_test.loc[:, admissible_features],
-                    protected=' Female', name='backward_adult')
+                    protected=protected, name=dataset)
     f1_test = f1_score(np.ravel(y_test.to_numpy()), predicted_test)
 
     representation = [x for idx, x in enumerate(allowed_names) if idx in selected_indices]
