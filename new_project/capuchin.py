@@ -9,7 +9,8 @@ def get_contigency_matrices(df, sensitive_attribute=None, admissible_attributes=
     for i in admissible_attributes:
         z.append(sorted(df[i].unique()))
 
-    Z = df.groupby(admissible_attributes).size().reset_index()[admissible_attributes].values.tolist()
+    Z = list(itertools.product(*z))
+    #Z = df.groupby(admissible_attributes).size().reset_index()[admissible_attributes].values.tolist()
 
     I = [sensitive_attribute]
     I.extend([i for i in list(df) if i not in admissible_attributes and i not in [target, sensitive_attribute]])
@@ -80,12 +81,8 @@ def factorize_matrices(contigency_matrix):
 
 def repair_dataset(df, sensitive_attribute, admissible_attributes, target):
 
-    print('get matrices')
     matrices, X, Y, Z, I, res = get_contigency_matrices(df=df, sensitive_attribute=sensitive_attribute, admissible_attributes=admissible_attributes, target=target)
-    print('factorize matrices')
     M = factorize_matrices(matrices)
-    print('done with factorization')
-
 
     columns = []
     columns.extend(admissible_attributes)
@@ -114,4 +111,10 @@ def repair_dataset(df, sensitive_attribute, admissible_attributes, target):
     repaired_df = pd.DataFrame(repaired_tuples, columns=columns)
 
     return repaired_df
+
+
+
+
+
+
 

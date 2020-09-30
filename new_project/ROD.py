@@ -19,21 +19,28 @@ else:
 
 def learn_MB(df=None, name=None, tmp_path=tmp_folder):
 
-    r = randrange(1000000)
+    r = randrange(100000000)
     df.to_csv(path_or_buf=tmp_folder + '/' + name + str(r) + '.csv', index=False)
     subprocess.run("Rscript " + rscript_path + ' ' + name + str(r) + ' ' + tmp_path, shell=True)
 
     mb = []
-    file = open(tmp_folder + '/' + name + str(r) + '.txt', 'r')
-    f1 = file.readlines()
-    for line in f1:
-        line = line.strip()
-        l = line.replace('\n\'', '')
-        l = l.replace("\\", "")
-        mb.extend([l])
+    try:
+        file = open(tmp_folder + '/' + name + str(r) + '.txt', 'r')
+        f1 = file.readlines()
+        for line in f1:
+            line = line.strip()
+            l = line.replace('\n\'', '')
+            l = l.replace("\\", "")
+            mb.extend([l])
+    except FileNotFoundError:
+        pass
 
-    os.remove(tmp_folder + '/' + name + str(r) + '.csv')
-    os.remove(tmp_folder + '/' + name + str(r) + '.txt')
+
+    try:
+        os.remove(tmp_folder + '/' + name + str(r) + '.csv')
+        os.remove(tmp_folder + '/' + name + str(r) + '.txt')
+    except FileNotFoundError:
+        pass
 
 
     #print('Markov blanket for ' + name + ' : {}'.format(mb))
@@ -78,6 +85,7 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
     else:
         mb_empty = True
 
+    result = 0
     if mb_empty == False:
         ROD = []
         weights = []
@@ -86,7 +94,10 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
             if z.dtype == 'float64' and unique_contexts.dtype == 'float64':
                 test_c = z == contexts
             else:
-                test_c = np.char.equal(contexts, z)
+                try:
+                    test_c = np.char.equal(contexts, z)
+                except TypeError:
+                    test_c = np.equal(contexts, z)
 
             ids = np.argwhere(np.all(test_c, axis=1))
 
