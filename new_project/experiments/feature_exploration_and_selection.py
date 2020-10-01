@@ -21,7 +21,7 @@ from numpy.linalg import norm
 import time
 import multiprocessing as mp
 
-home = str(Path.home())
+home = str(Path.home() + '/projects')
 
 results_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/intermediate_results'
 COMPAS_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/compas-analysis'

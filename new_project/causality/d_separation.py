@@ -7,7 +7,7 @@ import os
 path = Path(home + '/Finding-Fair-Representations-Through-Feature-Construction/data/tmp')
 path.mkdir(parents=True, exist_ok=True)
 tmp_folder = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/tmp'
-rscript_path = home + '/Complexity-Driven-Feature-Construction/new_project/R_scripts/d_separation.R'
+rscript_path = home + '/projects/Complexity-Driven-Feature-Construction/new_project/R_scripts/d_separation.R'
 
 if Path(rscript_path).is_file():
     pass
