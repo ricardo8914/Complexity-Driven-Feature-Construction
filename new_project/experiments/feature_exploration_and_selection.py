@@ -48,12 +48,11 @@ all_features = list(df)
 all_features.remove(target)
 all_2_combinations = list(itertools.combinations(all_features, 2))
 
-
-
 complexity = 4
-CF = True
+CF = False
 count = 0
 method_list = []
+runtimes_list = []
 kf1 = KFold(n_splits=5, random_state=42, shuffle=True)
 
 
@@ -80,6 +79,7 @@ def causal_filter(transformed_train_i, all_names, X_train, train_df, candidate):
 def evaluation(count):
     for train_index, test_index in kf1.split(df):
 
+        runtimes = [len(all_2_combinations), complexity]
         count_transformations = 0
         filtered_transformations = 0
         time_2_create_transformations = 0
@@ -125,6 +125,7 @@ def evaluation(count):
 
         for idc, i in enumerate(clfs):
 
+            runtimes.extend([i[1], X_train.shape[0]])
             accepted_features = []
             unique_representations = []
             transformed_train = np.empty((X_train.shape[0], 1))
@@ -274,6 +275,7 @@ def evaluation(count):
                             pass
                         print(transformed_train.shape, y_train.shape)
                         cv_scores.fit(transformed_train, np.ravel(y_train.to_numpy()))
+
                         test_scores = cv_scores.cv_results_['mean_test_F1'][cv_scores.best_index_]
                         rod_scores = cv_scores.cv_results_['mean_test_ROD'][cv_scores.best_index_]
 
@@ -291,7 +293,7 @@ def evaluation(count):
                         registered_representations_train.append(
                             [accepted_features.copy(), len(accepted_features.copy()), test_scores, rod_scores, classifier])
 
-                        print(classifier + 'F1: ' + str(f1_ff) + 'ROD: ' + str(rod_ff) + str(accepted_features))
+                        print(classifier + 'F1 : ' + str(f1_ff) + 'ROD : ' + str(rod_ff) + str(accepted_features))
 
                         if test_scores > join_score:
                             join_score = test_scores
@@ -326,7 +328,7 @@ def evaluation(count):
                                         registered_representations_train.append(
                                             [accepted_features_r.copy(), len(accepted_features_r.copy()), test_scores_r, rod_scores_r, classifier])
 
-                                        if test_scores_r >= join_score:
+                                        if test_scores_r > join_score:
                                             join_score = test_scores_r
                                         else:
                                             selected_ids.remove(idd)
@@ -379,8 +381,17 @@ def evaluation(count):
 
             # Now SBFS
 
+            cv_scores = GridSearchCV(i[0],
+                                     # param_grid=dict,
+                                     param_grid={
+                                         'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'], 'class_weight': ['balanced'],
+                                         'max_iter': [100000], 'multi_class': ['auto']
+                                     },
+                                     n_jobs=-1,
+                                     scoring={'F1': f1, 'ROD': rod_score}, refit='ROD', cv=5)
+
             selected_ids_r = []
-            for d in reversed(range(transformed_train.shape[1])):
+            for d in range(transformed_train.shape[1]):
                 if transformed_train.shape[1] > len(selected_ids_r) + 1:
                     selected_ids_r.extend([d])
                     transformed_train_cr = np.delete(transformed_train, selected_ids_r, 1)
@@ -454,8 +465,8 @@ def evaluation(count):
                 else:
                     pass
 
-                print('representation size: ' + str(transformed_train.shape[1] - len(selected_ids_r)),
-                      'ROD: ' + str(rod_complete), 'F1' + str(f1_complete))
+                print('representation size : ' + str(transformed_train.shape[1] - len(selected_ids_r)),
+                      'ROD : ' + str(rod_complete), 'F1: ' + str(f1_complete))
 
             if len(selected_ids_r) > 0:
                 transformed_train = np.delete(transformed_train, selected_ids_r, 1)
@@ -501,6 +512,8 @@ def evaluation(count):
             pareto = identify_pareto(scores)
             pareto_front = scores[pareto]
 
+            #pareto_front = scores
+
             ideal_point = np.asarray([1, 1])
             dist = np.empty((pareto_front.shape[0], 1))
 
@@ -508,10 +521,18 @@ def evaluation(count):
                 dist[idx] = norm(i - ideal_point)
 
             min_dist = np.argmin(dist)
-            selected_representation = all_visited_test[min_dist]
+            print('selected: ' + str(pareto[min_dist]))
+            selected_representation = all_visited_test[pareto[min_dist]]
 
             method_list.append(['FC_FS_BS', classifier, selected_representation[3], selected_representation[2], selected_representation[0],
                                len(selected_representation[0]), count + 1])
+
+            runtimes.extend(
+                [count_transformations, time_2_create_transformations, filtered_transformations, time_2_CF, time_2_FR,
+                 time_2_SR,
+                 time_2_create_transformations + time_2_CF + time_2_FR + time_2_SR, count + 1])
+
+            runtimes_list.append(runtimes)
 
             visited_representations_train = pd.DataFrame(registered_representations_train, columns=['Representation', 'Size', 'F1', 'ROD', 'Classifier'])
             visited_representations_train['Fold'] = count + 1
@@ -538,11 +559,30 @@ def evaluation(count):
         count += 1
 
     summary_df = pd.DataFrame(method_list, columns=['Method', 'Classifier', 'ROD', 'F1', 'Representation', 'Size', 'Fold'])
+    runtimes_df = pd.DataFrame(runtimes_list, columns=['Combinations', 'Complexity', 'Classifier', 'Rows', 'Transformations',
+                                                       'Time_2_transformations', 'Filtered_transformations',
+                                                       'Time_2_CF', 'Time_2_FR', 'Time_2_SR', 'Total_runtime_SFFS_BF',
+                                                       'Fold'])
 
     #print(summary_df.groupby('Classifier')['ROD'].mean())
     #print(summary_df.groupby('Classifier')['F1'].mean())
 
-    summary_df.to_csv(path_or_buf=results_path + '/complete_' + dataset + '_results_complexity_' + str(complexity) + '.csv', index=False)
+    if CF:
+        summary_df.to_csv(
+            path_or_buf=results_path + '/complete_' + dataset + '_results_complexity_' + str(complexity) + '_CF.csv',
+            index=False)
+        runtimes_df.to_csv(
+            path_or_buf=results_path + '/' + dataset + '_runtimes_complexity_' + str(complexity) + '_CF_' + str(
+                count) + '.csv',
+            index=False)
+    else:
+        summary_df.to_csv(
+            path_or_buf=results_path + '/complete_' + dataset + '_results_complexity_' + str(complexity) + '.csv',
+            index=False)
+        runtimes_df.to_csv(
+            path_or_buf=results_path + '/' + dataset + '_runtimes_complexity_' + str(complexity) + '_' + str(
+                count) + '.csv',
+            index=False)
 
 if __name__ == '__main__':
     mp.set_start_method('fork')
