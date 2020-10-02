@@ -9,7 +9,7 @@ home = str(Path.home())
 path = Path(home + '/Finding-Fair-Representations-Through-Feature-Construction/data/tmp')
 path.mkdir(parents=True, exist_ok=True)
 tmp_folder = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/tmp'
-rscript_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/Rscript_template.R'
+rscript_path = home + '/projects/Complexity-Driven-Feature-Construction/new_project/R_scripts/markov_blanket.R'
 
 if Path(rscript_path).is_file():
     pass

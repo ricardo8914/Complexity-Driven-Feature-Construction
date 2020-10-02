@@ -14,14 +14,14 @@ from causality.d_separation import d_separation
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from functools import partial
-import ROD
+from ricardo_utils import ROD
 from sklearn.model_selection import KFold
 from sklearn.model_selection import GridSearchCV
 from numpy.linalg import norm
 import time
 import multiprocessing as mp
 
-home = str(Path.home() + '/projects')
+home = str(Path.home())
 
 results_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/intermediate_results'
 COMPAS_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/compas-analysis'
