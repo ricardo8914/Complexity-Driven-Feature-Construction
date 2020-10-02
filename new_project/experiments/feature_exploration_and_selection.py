@@ -509,10 +509,10 @@ def evaluation(count):
             normalized = (scores[:, 1] - scores[:, 1].min()) / (0 - scores[:, 1].min())
             scores[:, 1] = normalized
 
-            #pareto = identify_pareto(scores)
-            #pareto_front = scores[pareto]
+            pareto = identify_pareto(scores)
+            pareto_front = scores[pareto]
 
-            pareto_front = scores
+            #pareto_front = scores
 
             ideal_point = np.asarray([1, 1])
             dist = np.empty((pareto_front.shape[0], 1))
@@ -521,8 +521,8 @@ def evaluation(count):
                 dist[idx] = norm(i - ideal_point)
 
             min_dist = np.argmin(dist)
-            print('selected: ' + str(min_dist))
-            selected_representation = all_visited_test[min_dist]
+            print('selected: ' + str(pareto[min_dist]))
+            selected_representation = all_visited_test[pareto[min_dist]]
 
             method_list.append(['FC_FS_BS', classifier, selected_representation[3], selected_representation[2], selected_representation[0],
                                len(selected_representation[0]), count + 1])
