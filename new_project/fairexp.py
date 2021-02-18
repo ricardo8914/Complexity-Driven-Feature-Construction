@@ -34,11 +34,9 @@ def construct_features(df=None, complexity=None, scoring=None, target=None):
     X = df.loc[:, [i for i in list(df) if i != target]]
     y = np.ravel(df.loc[:, target].to_numpy())
 
-    print(X.head())
-
     features2_scale = []
     for idx, i in enumerate(list(X)):
-        if df.loc[:, i].dtype != np.dtype('O'):
+        if X.loc[:, i].dtype in (int, float):
             features2_scale.append(idx)
         else:
             pass
@@ -47,13 +45,16 @@ def construct_features(df=None, complexity=None, scoring=None, target=None):
     features2_build_num = []
 
     for i in list(X):
-        if df.loc[:, i].dtype != np.dtype('O'):
+        if X.loc[:, i].dtype in (int, float):
             features2_build_num.append(i)
         else:
             features2_build_cat.append(i)
+            X.loc[:, i] = X.loc[:, i].astype('object')
 
     new_order = features2_build_num + features2_build_cat
+
     features2_build_mask = ([False] * len(features2_build_num)) + ([True] * len(features2_build_cat))
+
 
     numerical_transformer = Pipeline(steps=[('scaler', MinMaxScaler())])
 
@@ -134,7 +135,7 @@ def extend_dataframe_complete(df=None, complexity=None, scoring=None, target=Non
 
     features2_scale = []
     for idx, i in enumerate(list(X)):
-        if df.loc[:, i].dtype != np.dtype('O'):
+        if df.loc[:, i].dtype in (int, float):
             features2_scale.append(idx)
         else:
             pass
