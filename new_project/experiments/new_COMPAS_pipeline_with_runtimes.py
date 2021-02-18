@@ -486,6 +486,7 @@ def evaluation():
             dist[idx] = norm(i - ideal_point)
 
         min_dist = np.argmin(dist)
+        print(min_dist)
         selected_representation = all_visited_test[min_dist]
 
         method_list.append(['FC_FS_BS', selected_representation[3], selected_representation[2], selected_representation[0],

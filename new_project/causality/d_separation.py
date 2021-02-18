@@ -21,17 +21,33 @@ def d_separation(df=None, sensitive=None, target=None, tmp_path=tmp_folder):
     df.to_csv(path_or_buf=tmp_folder + '/' + sensitive + str(r) + '.csv', index=False)
     subprocess.run("Rscript " + rscript_path + ' ' + sensitive + ' ' + target + ' ' + tmp_path + ' ' + sensitive + str(r), shell=True)
 
-    file = open(tmp_folder + '/' + sensitive + str(r) + '.txt', 'r')
-    f1 = file.readlines()
-    l = f1[0].strip()
-    l = l.replace('\n\'', '')
+    # file = open(tmp_folder + '/' + sensitive + str(r) + '.txt', 'r')
+    # f1 = file.readlines()
+    # l = f1[0].strip()
+    # l = l.replace('\n\'', '')
 
+    mb = []
+    l = 'FALSE'
+    try:
+        file = open(tmp_folder + '/' + sensitive + str(r) + '_MB' + '.txt', 'r')
+        f1 = file.readlines()
+        for line in f1:
+            line = line.strip()
+            l = line.replace('\n\'', '')
+            l = l.replace("\\", "")
+            mb.extend([l])
+    except FileNotFoundError:
+        pass
+
+    response = False
     if l == 'TRUE':
         response = True
-    elif l == 'FALSE':
-        response = False
 
-    os.remove(tmp_folder + '/' + sensitive + str(r) + '.csv')
-    os.remove(tmp_folder + '/' + sensitive + str(r) + '.txt')
+    try:
+        os.remove(tmp_folder + '/' + sensitive + str(r) + '.csv')
+        #os.remove(tmp_folder + '/' + sensitive + str(r) + '.txt')
+        os.remove(tmp_folder + '/' + sensitive + str(r) + '_MB' + '.txt')
+    except FileNotFoundError:
+        pass
 
-    return response
+    return mb

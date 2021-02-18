@@ -8,11 +8,9 @@ from sklearn.compose import ColumnTransformer
 from sklearn.metrics import f1_score
 from fastsklearnfeature.interactiveAutoML.feature_selection.ConstructionTransformation import ConstructionTransformer
 from sklearn.metrics import make_scorer
-from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from causality.d_separation import d_separation
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.preprocessing import Normalizer
 from functools import partial
 import ROD
 from sklearn.model_selection import KFold
@@ -33,7 +31,7 @@ df = df.loc[(df['days_b_screening_arrest'] <= 30) &
                     & (df['is_recid'] != -1)
                     & (df['race'].isin(['African-American', 'Caucasian']))
                     & (df['c_charge_degree'].isin(['F', 'M']))
-                    ,['race', 'age', 'priors_count', 'is_recid', 'c_charge_degree']]
+                    , ['race', 'age', 'age_cat', 'priors_count', 'is_recid', 'c_charge_degree']]
 
 sensitive_feature = 'race'
 inadmissible_features = []
@@ -87,14 +85,13 @@ def evaluation(count):
         time_2_FR = 0
         time_2_SR = 0
 
-        #sample_idx_all = np.random.randint(train_index.shape[0], size=round(train_index.shape[0]*0.05))
-        #sample_x_all = train_index[sample_idx_all]
+        sample_idx_all = np.random.randint(train_index.shape[0], size=round(train_index.shape[0]*0.1))
+        sample_x_all = train_index[sample_idx_all]
 
-        #train_df = COMPAS.iloc[sample_x_all]
-        #test_df = COMPAS.iloc[test_index]
-
-        train_df = df.iloc[train_index]
+        train_df = df.iloc[sample_x_all]
         test_df = df.iloc[test_index]
+        #train_df = df.iloc[train_index]
+        #test_df = df.iloc[test_index]
 
         X_train = train_df.loc[:, all_features]
 
@@ -106,8 +103,8 @@ def evaluation(count):
 
         y_test = test_df.loc[:, target]
 
-        #X_train.reset_index(drop=True, inplace=True)
-        #y_train.reset_index(drop=True, inplace=True)
+        X_train.reset_index(drop=True, inplace=True)
+        y_train.reset_index(drop=True, inplace=True)
         rod_score = make_scorer(ROD.ROD, greater_is_better=True, needs_proba=True,
                                 sensitive=X_train.loc[:, sensitive_feature],
                                 admissible=X_train.loc[:, admissible_features],
@@ -148,9 +145,9 @@ def evaluation(count):
             cv_scores = GridSearchCV(i[0],
                                      #param_grid=dict,
                                      param_grid={
-                                         'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'], 'class_weight': ['balanced'],
-                                         'max_iter': [100000], 'multi_class': ['auto']
-                                     },
+                                          'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'], 'class_weight': ['balanced'],
+                                          'max_iter': [100000], 'multi_class': ['auto']
+                                      },
                                      n_jobs=-1,
                                      scoring={'F1': f1, 'ROD': rod_score}, refit='F1', cv=5)
             start_time_FR = time.time()
@@ -289,9 +286,9 @@ def evaluation(count):
                         f1_ff = f1_score(np.ravel(y_test.to_numpy()), predicted_ff)
 
                         registered_representations_test.append(
-                            [accepted_features.copy(), len(accepted_features.copy()), f1_ff, rod_ff, classifier])
+                            [accepted_features.copy(), len(accepted_features.copy()), f1_ff, rod_ff, classifier, 'Phase 1'])
                         registered_representations_train.append(
-                            [accepted_features.copy(), len(accepted_features.copy()), test_scores, rod_scores, classifier])
+                            [accepted_features.copy(), len(accepted_features.copy()), test_scores, rod_scores, classifier, 'Phase 1'])
 
                         print(classifier + 'F1 : ' + str(f1_ff) + 'ROD : ' + str(rod_ff) + str(accepted_features))
 
@@ -324,9 +321,9 @@ def evaluation(count):
                                         f1_ff_r = f1_score(np.ravel(y_test.to_numpy()), predicted_ff_r)
 
                                         registered_representations_test.append(
-                                            [accepted_features_r.copy(), len(accepted_features_r.copy()), f1_ff_r, rod_ff_r, classifier])
+                                            [accepted_features_r.copy(), len(accepted_features_r.copy()), f1_ff_r, rod_ff_r, classifier, 'Phase 1'])
                                         registered_representations_train.append(
-                                            [accepted_features_r.copy(), len(accepted_features_r.copy()), test_scores_r, rod_scores_r, classifier])
+                                            [accepted_features_r.copy(), len(accepted_features_r.copy()), test_scores_r, rod_scores_r, classifier, 'Phase 1'])
 
                                         if test_scores_r > join_score:
                                             join_score = test_scores_r
@@ -382,10 +379,10 @@ def evaluation(count):
             # Now SBFS
 
             cv_scores = GridSearchCV(i[0],
-                                     # param_grid=dict,
+                                     #param_grid=dict,
                                      param_grid={
-                                         'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'], 'class_weight': ['balanced'],
-                                         'max_iter': [100000], 'multi_class': ['auto']
+                                          'penalty': ['l2'], 'C': [1], 'solver': ['lbfgs'], 'class_weight': ['balanced'],
+                                          'max_iter': [100000], 'multi_class': ['auto']
                                      },
                                      n_jobs=-1,
                                      scoring={'F1': f1, 'ROD': rod_score}, refit='ROD', cv=5)
@@ -414,9 +411,9 @@ def evaluation(count):
                         f1_b = f1_score(np.ravel(y_test.to_numpy()), predicted_b)
 
                         registered_representations_test.append(
-                            [accepted_features_cr.copy(), len(accepted_features_cr.copy()), f1_b, rod_b, classifier])
+                            [accepted_features_cr.copy(), len(accepted_features_cr.copy()), f1_b, rod_b, classifier, 'Phase 2'])
                         registered_representations_train.append(
-                            [accepted_features_cr.copy(), len(accepted_features_cr.copy()), test_scores_cr, rod_scores_cr, classifier])
+                            [accepted_features_cr.copy(), len(accepted_features_cr.copy()), test_scores_cr, rod_scores_cr, classifier, 'Phase 2'])
                         unique_representations.append(accepted_features_cr.copy())
 
                         print(transformed_train_cr.shape, f1_b, rod_b, accepted_features_cr)
@@ -446,9 +443,9 @@ def evaluation(count):
                                     f1_a = f1_score(np.ravel(y_test.to_numpy()), predicted_a)
 
                                     registered_representations_test.append(
-                                        [accepted_features_a.copy(), len(accepted_features_a.copy()), f1_a, rod_a, classifier])
+                                        [accepted_features_a.copy(), len(accepted_features_a.copy()), f1_a, rod_a, classifier, 'Phase 2'])
                                     registered_representations_train.append(
-                                        [accepted_features_a.copy(), len(accepted_features_a.copy()), test_scores_a, rod_scores_a, classifier])
+                                        [accepted_features_a.copy(), len(accepted_features_a.copy()), test_scores_a, rod_scores_a, classifier, 'Phase 2'])
                                     unique_representations.append(accepted_features_a.copy())
 
                                     if rod_scores_a > rod_complete:
@@ -506,11 +503,21 @@ def evaluation(count):
                 # Return ids of scenarios on pareto front
                 return population_ids[pareto_front]
 
-            normalized = (scores[:, 1] - scores[:, 1].min()) / (0 - scores[:, 1].min())
-            scores[:, 1] = normalized
+            scores[:, 1] = 1 - (scores[:, 1] * -1)
+            normal = Normalizer().fit_transform(scores)
+            #norm = norm.reshape(v_1.shape[0], 1)
+            #scores[:, 1] = 1 - normal
 
-            pareto = identify_pareto(scores)
-            pareto_front = scores[pareto]
+            #v_2 = scores[:, 0]
+            #normal_2 = Normalizer().fit_transform(v_2.reshape(1, -1))
+            # norm = norm.reshape(v_1.shape[0], 1)
+            #scores[:, 0] = normal_2
+
+            #normalized = (scores[:, 1] - scores[:, 1].min()) / (0 - scores[:, 1].min())
+            #scores[:, 1] = normalized
+
+            pareto = identify_pareto(normal)
+            pareto_front = normal[pareto]
 
             #pareto_front = scores
 
@@ -521,7 +528,9 @@ def evaluation(count):
                 dist[idx] = norm(i - ideal_point)
 
             min_dist = np.argmin(dist)
-            print('selected: ' + str(pareto[min_dist]))
+            print('Pareto: ' + str(pareto))
+            print('min_dist: ' + str(min_dist))
+            print('selected: ' + str(all_visited_test[pareto[min_dist]]))
             selected_representation = all_visited_test[pareto[min_dist]]
 
             method_list.append(['FC_FS_BS', classifier, selected_representation[3], selected_representation[2], selected_representation[0],
@@ -534,11 +543,11 @@ def evaluation(count):
 
             runtimes_list.append(runtimes)
 
-            visited_representations_train = pd.DataFrame(registered_representations_train, columns=['Representation', 'Size', 'F1', 'ROD', 'Classifier'])
+            visited_representations_train = pd.DataFrame(registered_representations_train, columns=['Representation', 'Size', 'F1', 'ROD', 'Classifier', 'Phase'])
             visited_representations_train['Fold'] = count + 1
 
             visited_representations_test = pd.DataFrame(registered_representations_test,
-                                                         columns=['Representation', 'Size', 'F1', 'ROD', 'Classifier'])
+                                                         columns=['Representation', 'Size', 'F1', 'ROD', 'Classifier', 'Phase'])
             visited_representations_test['Fold'] = count + 1
 
             if CF:

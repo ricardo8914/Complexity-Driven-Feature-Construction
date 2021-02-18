@@ -17,7 +17,7 @@ else:
     print('Please locate the corresponding Rscript in the following path: ' + rscript_path)
     exit()
 
-def learn_MB(df=None, name=None, tmp_path=tmp_folder):
+def learn_MB(df=None, name='_', tmp_path=tmp_folder):
 
     r = randrange(100000000)
     df.to_csv(path_or_buf=tmp_folder + '/' + name + str(r) + '.csv', index=False)
@@ -58,22 +58,22 @@ def generate_binned_df(df):
     return df_
 
 
-def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=None, name=None):
+def ROD(y_true=None, y_pred=None, df=None, sensitive=None, protected=None, admissible=None, test_idx=None, mb=None):
 
-    if not isinstance(y_pred, pd.DataFrame):
-        y_pred = pd.DataFrame(y_pred)
-    else:
-        pass
+    df_ = df.reset_index(drop=True)
 
-    sensitive_data = sensitive.iloc[y_pred.index.values]
-    outcome_array = y_pred.to_numpy()
-    outcome = pd.DataFrame(outcome_array, columns=['outcome'])
-    admissible_data = admissible.iloc[y_pred.index.values]
+    if test_idx is not None:
+        df_ = df_.iloc[test_idx]
+        df_ = df_.reset_index(drop=True)
 
-    df = pd.concat([admissible_data, outcome], axis=1)
+    sensitive_data = df_.loc[:, sensitive]
+    outcome = pd.DataFrame(y_pred, columns=['outcome'])
+    admissible_data = df_.loc[:, admissible]
 
-    mb = learn_MB(df, name)
-    binned_df = generate_binned_df(df)
+    evaluation_df = pd.concat([admissible_data, outcome], axis=1)
+
+    mb = [f for f in mb if f in admissible]
+    binned_df = generate_binned_df(evaluation_df)
     contexts = binned_df.loc[:, mb].to_numpy()
 
     protected = np.asarray(protected)
@@ -84,6 +84,7 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
         contexts = np.array(list([tuple(x) for x in contexts]))
     else:
         mb_empty = True
+
 
     result = 0
     if mb_empty == False:
@@ -106,7 +107,7 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
             cs_ids = np.intersect1d(ids, s_ids)
 
             if cs_ids.shape[0] > 0:
-                p_1_0 = np.mean(np.ravel(outcome_array[cs_ids]))
+                p_1_0 = np.mean(np.ravel(y_pred[cs_ids]))
                 p_0_0 = float(1 - p_1_0)
             else:
                 p_1_0 = 0.5
@@ -117,7 +118,7 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
             cns_ids = np.intersect1d(ids, ns_ids)
 
             if cns_ids.shape[0] > 0:
-                p_1_1 = np.mean(np.ravel(outcome_array[cns_ids]))
+                p_1_1 = np.mean(np.ravel(y_pred[cns_ids]))
                 p_0_1 = float(1 - p_1_1)
             else:
                 p_1_1 = 0.5
@@ -140,7 +141,7 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
         test_s = np.not_equal(sensitive_data.to_numpy(), protected)
         s_ids = np.argwhere(test_s)
         if s_ids.shape[0] > 0:
-            p_1_0 = np.mean(np.ravel(outcome_array[s_ids]))
+            p_1_0 = np.mean(np.ravel(y_pred[s_ids]))
             p_0_0 = float(1 - p_1_0)
         else:
             p_1_0 = 0.5
@@ -150,7 +151,7 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
         ns_ids = np.argwhere(test_ns)
 
         if ns_ids.shape[0] > 0:
-            p_1_1 = np.mean(np.ravel(outcome_array[ns_ids]))
+            p_1_1 = np.mean(np.ravel(y_pred[ns_ids]))
             p_0_1 = float(1 - p_1_1)
         else:
             p_1_1 = 0.5
@@ -167,7 +168,9 @@ def ROD(y_true=None, y_pred=None, sensitive=None, protected=None, admissible=Non
         except ZeroDivisionError:
             pass
 
-    #print('ROD: {:.4f}'.format(result))
+    if type(result) is np.ndarray:
+        result = result[0]
+
     return result
 
 
