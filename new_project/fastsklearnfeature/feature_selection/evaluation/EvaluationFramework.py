@@ -221,7 +221,7 @@ class EvaluationFramework:
                 self.train_y_all_target = label_encoder.transform(self.train_y_all)
 
             self.preprocessed_folds = []
-            for train, test in StratifiedKFold(n_splits=self.folds, random_state=42).split(
+            for train, test in StratifiedKFold(n_splits=self.folds, random_state=42, shuffle=True).split(
                     self.dataset.splitted_values['train'],
                     current_target):
                 self.preprocessed_folds.append((train, test))
