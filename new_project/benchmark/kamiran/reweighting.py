@@ -36,4 +36,4 @@ def reweighting(df, target, sensitive, protected):
 
     df_['weight'] = df_.apply(lambda row: weight(row), axis=1)
 
-    return df_
+    return df_['weight'].to_numpy()

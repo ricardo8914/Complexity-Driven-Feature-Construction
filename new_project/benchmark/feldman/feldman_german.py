@@ -8,13 +8,12 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
 import numpy as np
-from causal_filter import causal_filter
+from causality.causal_filter import causal_filter
 import ROD
 from sklearn.metrics import f1_score
-from fairlearn.metrics import demographic_parity_difference, equalized_odds_difference, MetricFrame, selection_rate, true_positive_rate, true_negative_rate
-from fairexp import evaluate
+from fairlearn.metrics import demographic_parity_difference, MetricFrame, true_positive_rate, true_negative_rate
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
-from capuchin import repair_dataset
+from benchmark.capuchin import repair_dataset
 import time
 from CDP import CDP
 
@@ -142,7 +141,7 @@ for train_index, test_index in kf1.split(capuchin_credit_df):
     JCIT, mb = causal_filter(candidate_df, [sensitive])
 
     rod = ROD.ROD(y_pred=predicted_proba, df=test_df, sensitive=sensitive,
-                          admissible=admissible_features, protected=protected, mb=mb)
+                  admissible=admissible_features, protected=protected, mb=mb)
 
     dp = demographic_parity_difference(y_test, predicted,
                                                sensitive_features=test_df.loc[:, sensitive])
@@ -233,7 +232,7 @@ for train_index, test_index in kf1.split(capuchin_credit_df):
     JCIT, mb = causal_filter(candidate_df, [sensitive])
 
     rod_capuchin = ROD.ROD(y_pred=predicted_proba_capuchin, df=test_df, sensitive=sensitive,
-                  admissible=admissible_features, protected=protected, mb=mb)
+                           admissible=admissible_features, protected=protected, mb=mb)
 
     dp_capuchin = demographic_parity_difference(y_test, predicted_capuchin,
                                        sensitive_features=test_df.loc[:, sensitive])

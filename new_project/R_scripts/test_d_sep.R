@@ -10,7 +10,7 @@ suppressMessages(if (!require('data.table')) install.packages('data.table', depe
 suppressMessages(if (!require('readr')) install.packages('readr', dependencies = TRUE)); suppressMessages(library('readr'))
 suppressMessages(if (!require('stringr')) install.packages('stringr', dependencies = TRUE)); suppressMessages(library('stringr'))
 suppressMessages(if (!require('comprehenr')) install.packages('comprehenr', dependencies = TRUE)); suppressMessages(library('comprehenr'))
-suppressMessages(if (!require('CondIndTests')) install.packages('CondIndTests', dependencies = TRUE)); suppressMessages(library('CondIndTests'))
+#suppressMessages(if (!require('CondIndTests')) install.packages('CondIndTests', dependencies = TRUE)); suppressMessages(library('CondIndTests'))
 #if (!requireNamespace("BiocManager", quietly = TRUE))
 #  install.packages("BiocManager")
 #BiocManager::install(c("graph", "RBGL", "Rgraphviz"))

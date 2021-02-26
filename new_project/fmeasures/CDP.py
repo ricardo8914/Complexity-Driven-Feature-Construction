@@ -11,7 +11,6 @@ def generate_binned_df(df, admissible):
             out, bins = pd.qcut(df_[i], q=3, retbins=True, duplicates='drop')
             if bins.shape[0] == 2:
                 out, bins = pd.cut(df_[i], bins=3, retbins=True, duplicates='drop')
-
             df_.loc[:, i] = out.astype(str)
     return df_
 
