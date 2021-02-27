@@ -33,7 +33,8 @@ setup(
                       "tqdm",
                       "openml==0.9.0",
                       "nimfa",
-                      "pymoo"],
+                      "pymoo",
+                      "hyperopt"],
     packages=find_packages(exclude=('tests', 'docs'))
 )
 
