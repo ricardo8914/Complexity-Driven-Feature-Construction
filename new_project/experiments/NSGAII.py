@@ -11,7 +11,7 @@ import multiprocessing as mp
 from fmeasures.ROD import ROD
 from numpy.linalg import norm
 from sklearn.model_selection import KFold
-from new_project.tests.test_evolutionary import evolution
+from evolutionary import evolution
 import time
 from causality.causal_filter import causal_filter
 
