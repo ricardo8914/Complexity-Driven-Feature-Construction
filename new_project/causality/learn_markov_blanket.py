@@ -1,7 +1,9 @@
 import subprocess
 from pathlib import Path
 import pandas as pd
-home = str(Path.home())
+from fastsklearnfeature.configuration.Config import Config
+home = str(Config.get('path_to_project'))
+#home = str(Path.home())
 
 tmp_folder = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/tmp'
 rscript_path = home + '/Complexity-Driven-Feature-Construction/new_project/R_scripts/markov_blanket.R'

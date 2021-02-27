@@ -24,7 +24,9 @@ import openml
 
 from pathlib import Path
 
-home = str(Path.home())
+from fastsklearnfeature.configuration.Config import Config
+home = str(Config.get('path_to_project'))
+#home = str(Path.home())
 
 capuchin_path = home + '/Finding-Fair-Representations-Through-Feature-Construction/data/capuchin'
 results_path = Path(home + '/Complexity-Driven-Feature-Construction/results')

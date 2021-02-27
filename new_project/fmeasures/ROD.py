@@ -4,7 +4,10 @@ from pathlib import Path
 import pandas as pd
 from random import randrange
 import os
-home = str(Path.home())
+
+from fastsklearnfeature.configuration.Config import Config
+home = str(Config.get('path_to_project'))
+#home = str(Path.home())
 
 path = Path(home + '/Finding-Fair-Representations-Through-Feature-Construction/data/tmp')
 path.mkdir(parents=True, exist_ok=True)

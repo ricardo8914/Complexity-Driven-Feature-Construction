@@ -1,7 +1,11 @@
 import subprocess
 from pathlib import Path
 from random import randrange
-home = str(Path.home())
+
+
+from fastsklearnfeature.configuration.Config import Config
+home = str(Config.get('path_to_project'))
+#home = str(Path.home())
 import os
 
 path = Path(home + '/Finding-Fair-Representations-Through-Feature-Construction/data/tmp')

@@ -357,11 +357,18 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
 
                 if len(candidates_f) > 0:
 
+                    '''
                     pool = mp.Pool(mp.cpu_count())
                     func = partial(eliminate, current_representation_train, y_train, df_train, current_names.copy(),
                                    sensitive_feature, sensitive_features, target, protected, clf)
                     results_back = pool.map(func, candidates_f)
                     pool.close()
+                    '''
+                    results_back = []
+                    for candidates_fi in candidates_f:
+                        results_back.append(
+                            eliminate(current_representation_train, y_train, df_train, current_names.copy(),
+                                      sensitive_feature, sensitive_features, target, protected, clf, candidates_fi))
 
                     floating_evaluation = list(itertools.chain(*[results_back]))
 

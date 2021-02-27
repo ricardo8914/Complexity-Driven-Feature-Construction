@@ -22,16 +22,18 @@ setup(
     include_package_data=True,
     install_requires=["numpy",
                       "pandas",
-                      "scikit-learn==0.21",
+                      "scikit-learn==0.24.1",
                       "xgboost",
                       "matplotlib",
                       "numpy_indexed",
                       "imbalanced-learn",
-                      "autofeat",
+                      #"autofeat",
                       "joblib",
                       "sympy",
                       "tqdm",
-                      "openml==0.9.0"],
+                      "openml==0.9.0",
+                      "nimfa",
+                      "pymoo"],
     packages=find_packages(exclude=('tests', 'docs'))
 )
 

@@ -37,7 +37,7 @@ class ConstructionTransformer(BaseEstimator, TransformerMixin):
                                                       score=self.scoring, c_max=self.c_max, folds=self.cv,
                                                       max_seconds=self.max_time_secs, classifier=self.model.__class__,
                                                       grid_search_parameters=self.parameter_grid, n_jobs=self.n_jobs,
-                                                      epsilon=self.epsilon, save_logs=False, remove_parents=True,
+                                                      epsilon=self.epsilon, save_logs=False, remove_parents=False,
                                                  transformation_producer=self.transformation_producer)
 
         fe.run()

@@ -5,7 +5,9 @@ import pandas as pd
 import multiprocessing as mp
 from pathlib import Path
 
-home = str(Path.home())
+from fastsklearnfeature.configuration.Config import Config
+home = str(Config.get('path_to_project'))
+#home = str(Path.home())
 
 results_path = Path(home + '/Complexity-Driven-Feature-Construction/results')
 results_path.mkdir(parents=True, exist_ok=True)

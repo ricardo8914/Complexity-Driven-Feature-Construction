@@ -20,7 +20,9 @@ from fairlearn.metrics import demographic_parity_difference, MetricFrame, true_p
 
 from pathlib import Path
 
-home = str(Path.home())
+from fastsklearnfeature.configuration.Config import Config
+home = str(Config.get('path_to_project'))
+#home = str(Path.home())
 
 results_path = Path(home + '/Complexity-Driven-Feature-Construction/results')
 results_path.mkdir(parents=True, exist_ok=True)
@@ -62,7 +64,7 @@ if __name__ == '__main__':
 
         start_time = time.time()
 
-        X, names, retained_indices, valid_indices = extend_dataframe_complete(df=adult, complexity=2, scoring=f1,
+        X, names, retained_indices, valid_indices = extend_dataframe_complete(df=adult, complexity=3, scoring=f1,
                                                                               target=target, sampling=0.05,
                                                                               train_indices=train_index)
 
