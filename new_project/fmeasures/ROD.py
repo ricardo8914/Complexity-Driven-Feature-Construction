@@ -172,6 +172,7 @@ def ROD(y_true=None, y_pred=None, df=None, sensitive=None, protected=None, admis
     if type(result) is np.ndarray:
         result = result[0]
 
+    print(result)
     return result
 
 

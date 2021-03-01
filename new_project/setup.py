@@ -34,7 +34,10 @@ setup(
                       "openml==0.9.0",
                       "nimfa",
                       "pymoo",
-                      "hyperopt"],
+                      "hyperopt",
+                      "fairlearn",
+                      "mmh3",
+                      "bitarray"],
     packages=find_packages(exclude=('tests', 'docs'))
 )
 
