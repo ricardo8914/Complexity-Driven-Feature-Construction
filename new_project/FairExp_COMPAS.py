@@ -925,6 +925,8 @@ def COMPAS_experiment():
              cdp_capuchin,
              ctpb_capuchin, ctnb_capuchin, f1_capuchin, end_time])
 
+        fold += 1
+
     results_df = pd.DataFrame(results,
                               columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime'])
