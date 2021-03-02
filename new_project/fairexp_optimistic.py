@@ -21,6 +21,7 @@ from fmeasures import CDP
 from filters.bloom_filter import BloomFilter
 from fairlearn.metrics import demographic_parity_difference, MetricFrame, true_positive_rate, true_negative_rate
 from random import randrange
+import parallel_variables
 
 
 #c = Config.Config
@@ -254,6 +255,35 @@ def identify_pareto(scores):
     return population_ids[pareto_front]
 
 
+
+def run_evaluation_parallel(i):
+    current_representation_train = parallel_variables.current_representation_train
+    names = parallel_variables.names
+    current_names = parallel_variables.current_names
+    train = parallel_variables.train
+    y_train = parallel_variables.y_train
+    df_train = parallel_variables.df_train
+    sensitive_feature = parallel_variables.sensitive_feature
+    sensitive_features = parallel_variables.sensitive_features
+    protected = parallel_variables.protected
+    admissible = parallel_variables.admissible
+    clf = parallel_variables.clf
+
+    if type(current_representation_train) == type(None):
+        current_representation_train = train[:, [i]]
+    else:
+        current_representation_train = np.hstack((current_representation_train, train[:, [i]]))
+
+    current_names.append(names[i])
+
+    temp_acc_score, temp_fair_score, JCIT = run_evaluation(current_representation_train,
+                                                           y_train, df_train,
+                                                           sensitive_feature, sensitive_features, protected,
+                                                           current_names.copy(), admissible, clf)
+
+    return {'temp_acc_score': temp_acc_score, 'temp_fair_score': temp_fair_score, 'JCIT': JCIT, 'i': i}
+
+
 def run_evaluation(x_train, y_train, df_train, sensitive_feature, sensitive_features, protected, current_names, admissible, clf):
     f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
     dict = {}
@@ -261,7 +291,7 @@ def run_evaluation(x_train, y_train, df_train, sensitive_feature, sensitive_feat
         dict[x] = list([clf.get_params()[x]])
     cv_scores = GridSearchCV(clf,
                              param_grid=dict,
-                             n_jobs=-1,
+                             n_jobs=5,
                              scoring=f1,
                              cv=KFold(n_splits=5, random_state=66, shuffle=True))
     cv_scores.fit(x_train, y_train)
@@ -309,7 +339,7 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
         pass
 
     registered_representations_train = []
-    current_representation_train = np.empty((train.shape[0], 1))
+    current_representation_train = None
     current_names = []
 
     global_acc_score = 0
@@ -318,31 +348,60 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
     start_time = time.time()
 
     ## First Phase
-    for idx, i in enumerate(range(train.shape[1])):
+    i = 0
+    number_of_paralllelism = 4
+    while i < train.shape[1]:
 
-        current_representation_train = np.hstack((current_representation_train, train[:, [i]]))
+        parallel_variables.current_representation_train = current_representation_train
+        parallel_variables.names = names
+        parallel_variables.current_names = current_names
+        parallel_variables.train = train
+        parallel_variables.y_train = y_train
+        parallel_variables.df_train = df_train
+        parallel_variables.sensitive_feature = sensitive_feature
+        parallel_variables.sensitive_features = sensitive_features
+        parallel_variables.protected = protected
+        parallel_variables.admissible = admissible_features
+        parallel_variables.clf = clf
 
-        if idx == 0:
-            current_representation_train = current_representation_train[:, 1:]
-        else:
-            pass
+        to_be_investigated_optimistically = []
+        for ii in range(number_of_paralllelism):
+            if i + ii < train.shape[1]:
+                print(i+ii)
+                to_be_investigated_optimistically.append(i + ii)
 
-        current_names.append(names[i])
-        sort_idx = sorted(range(len(current_names)), key=lambda k: current_names[k])
-        current_representation_train = current_representation_train[:, sort_idx]
-        current_names.sort()
-        explored_representations.append(current_names.copy())
+        pool = mp.Pool(min([number_of_paralllelism, len(to_be_investigated_optimistically)]))
+        results_back = pool.map(run_evaluation_parallel, to_be_investigated_optimistically)
+        pool.close()
 
-        temp_acc_score, temp_fair_score, JCIT = run_evaluation(current_representation_train,
-                                                               y_train, df_train,
-                                                               sensitive_feature, sensitive_features, protected,
-                                                               current_names.copy(), admissible_features, clf)
-        registered_representations_train.append(
-            [current_names.copy(), len(current_names.copy()), temp_acc_score, temp_fair_score, JCIT, 'Phase 1'])
+        print(results_back)
+        print(len(names))
+        max_result_index = -1
+        for ii in range(len(results_back)):
+            if max_result_index == -1 and results_back[ii]['temp_acc_score'] > global_acc_score:
+                max_result_index = ii
 
-        if temp_acc_score > global_acc_score:
-            global_acc_score = temp_acc_score
-            global_fair_score = temp_fair_score
+            current_names_new = current_names.copy()
+            current_names_new.append(names[results_back[ii]['i']])
+            registered_representations_train.append([current_names_new.copy(), len(current_names_new.copy()), results_back[ii]['temp_acc_score'], results_back[ii]['temp_fair_score'], results_back[ii]['JCIT'], 'Phase 1'])
+            explored_representations.append(current_names_new.copy())
+
+        if max_result_index == -1: #no result was better than the feature set that we already have, so we can skip all 
+            i = results_back[-1]['i'] + 1
+            continue
+
+        if max_result_index >= 0 and results_back[max_result_index]['temp_acc_score'] > global_acc_score:
+            global_acc_score = results_back[max_result_index]['temp_acc_score']
+            global_fair_score = results_back[max_result_index]['temp_fair_score']
+
+            if type(current_representation_train) == type(None):
+                current_representation_train = train[:, [results_back[max_result_index]['i']]]
+            else:
+                current_representation_train = np.hstack((current_representation_train, train[:, [results_back[max_result_index]['i']]]))
+            current_names.append(names[results_back[max_result_index]['i']])
+
+            i = results_back[max_result_index]['i'] + 1
+
 
             candidates_f = []
             if current_representation_train.shape[1] > 1:
@@ -392,9 +451,7 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
             else:
                 pass
         else:
-            remove_idx = current_names.index(names[i])
-            current_names.remove(names[i])
-            current_representation_train = np.delete(current_representation_train, remove_idx, 1)
+            i += 1
 
     first_phase_names = current_names.copy()
     selected_indices_first_phase = [names.index(f) for f in first_phase_names]
