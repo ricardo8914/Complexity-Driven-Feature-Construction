@@ -349,7 +349,8 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
 
     ## First Phase
     i = 0
-    number_of_paralllelism = 8#4
+    number_of_paralllelism = mp.cpu_count()#4
+    print("cpu count: " + str(number_of_paralllelism))
     while i < train.shape[1]:
 
         parallel_variables.current_representation_train = current_representation_train
