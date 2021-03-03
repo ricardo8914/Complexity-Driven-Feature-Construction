@@ -3,7 +3,7 @@ from sklearn.model_selection import KFold
 import multiprocessing as mp
 from sklearn.metrics import make_scorer
 from sklearn.metrics import f1_score
-from fairexp_optimistic import extend_dataframe_complete, repair_algorithm
+from fairexp_optimistic import extend_dataframe_complete, repair_algorithm_original
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
@@ -84,7 +84,7 @@ def scalability_experiment(sampling=0.1, complexity=4):
         train_df_e = df.iloc[retained_indices]
         test_df_e = df.iloc[test_indices]
 
-        selected_features_ = repair_algorithm(X_train, names, train_df_e, y_train, sensitive_feature,
+        selected_features_ = repair_algorithm_original(X_train, names, train_df_e, y_train, sensitive_feature,
                                               sensitive_features, protected,
                                               admissible_features, target,
                                               LogisticRegression(penalty='l2', C=1, solver='lbfgs',
