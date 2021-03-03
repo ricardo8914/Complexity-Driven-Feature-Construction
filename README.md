@@ -14,7 +14,9 @@ We provide a small jupyter notebook as an example: [Example Notebook](../master/
 ## Setup 
 ```
 cd new_project/
-python3.7 -m pip install .
+conda create -n vldb_revision -c conda-forge r-base=3.6.1 python=3.8
+conda activate vldb_revision
+python -m pip install .
 ```
 
 ## Experiments
