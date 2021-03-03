@@ -291,7 +291,7 @@ def run_evaluation(x_train, y_train, df_train, sensitive_feature, sensitive_feat
         dict[x] = list([clf.get_params()[x]])
     cv_scores = GridSearchCV(clf,
                              param_grid=dict,
-                             n_jobs=5,
+                             n_jobs=1,#todo
                              scoring=f1,
                              cv=KFold(n_splits=5, random_state=66, shuffle=True))
     cv_scores.fit(x_train, y_train)
@@ -349,7 +349,7 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
 
     ## First Phase
     i = 0
-    number_of_paralllelism = 4
+    number_of_paralllelism = 8#4
     while i < train.shape[1]:
 
         parallel_variables.current_representation_train = current_representation_train
@@ -384,9 +384,11 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
             current_names_new = current_names.copy()
             current_names_new.append(names[results_back[ii]['i']])
             registered_representations_train.append([current_names_new.copy(), len(current_names_new.copy()), results_back[ii]['temp_acc_score'], results_back[ii]['temp_fair_score'], results_back[ii]['JCIT'], 'Phase 1'])
+
+            current_names_new.sort()
             explored_representations.append(current_names_new.copy())
 
-        if max_result_index == -1: #no result was better than the feature set that we already have, so we can skip all 
+        if max_result_index == -1: #no result was better than the feature set that we already have, so we can skip all
             i = results_back[-1]['i'] + 1
             continue
 
