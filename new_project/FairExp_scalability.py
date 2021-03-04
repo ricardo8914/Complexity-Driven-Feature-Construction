@@ -223,7 +223,7 @@ if __name__ == '__main__':
     mp.set_start_method('fork')
 
     #sampling_list = [0.001, 0.01, 0.1, 0.5]
-    sampling_list = [0.1]
+    sampling_list = [1.0]
 
     results = pd.DataFrame(columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime', 'Features', 'Constructed Features', 'Rows', 'Complexity'])
