@@ -229,7 +229,7 @@ if __name__ == '__main__':
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime', 'Features', 'Constructed Features', 'Rows', 'Complexity'])
     for i in sampling_list:
         print('sampling ' + str(round(i * df.shape[0])) + ' ' + 'rows')
-        a = scalability_experiment(sampling=i, complexity=4)
+        a = scalability_experiment(sampling=i, complexity=3)
         results = results.append(a)
 
     results.to_csv(
