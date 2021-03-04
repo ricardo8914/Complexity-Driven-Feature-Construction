@@ -24,6 +24,7 @@ from random import randrange
 import parallel_variables
 
 
+
 #c = Config.Config
 
 #print(c.load())
@@ -103,6 +104,8 @@ def extend_dataframe_complete(df=None, complexity=None, scoring=None, target=Non
 
     features, features_names, complexities, transformations = construct_features(df_, complexity, scoring, target)
 
+    print('test')
+
     if prefiltering:
 
         bloomf = BloomFilter(len(features_names), 0.1)
@@ -138,12 +141,16 @@ def extend_dataframe_complete(df=None, complexity=None, scoring=None, target=Non
 
     X = df.loc[:, [f for f in list(df) if f != target]]
 
+    print('loc thingy')
+
     features2_scale = []
     for idx, i in enumerate(list(X)):
         if df.loc[:, i].dtype in (int, float):
             features2_scale.append(idx)
         else:
             pass
+
+    print('feature scale thingy')
 
     numerical_transformer = Pipeline(steps=[('scaler', MinMaxScaler())])
 
@@ -153,21 +160,33 @@ def extend_dataframe_complete(df=None, complexity=None, scoring=None, target=Non
 
     X = preprocessor.fit_transform(X)
 
-    transformed_set = np.empty((1, len(selected_indices)))
+    transformed_set = None#np.empty((1, len(selected_indices)))
 
     def chunks(array, n):
         """Yield successive n-sized chunks from array."""
         for i in range(0, array.shape[0], n):
             yield array[i:i + n]
 
-    array_chunks = chunks(X, 15000)
+    #array_chunks = chunks(X, 15000)
+    array_chunks = [X]
 
     for chunk in array_chunks:
+        print('running')
+        start_time_parallel = time.time()
 
+        parallel_variables.chunk = chunk
         pool = mp.Pool(mp.cpu_count())
-        func = partial(transform, chunk)
-        results_back = pool.map(func, [transformations[t] for t in selected_indices])
+        results_back = pool.map(transform, [transformations[t].pipeline for t in selected_indices])
         pool.close()
+
+        print('parallel time: ' + str(time.time() - start_time_parallel))
+
+        start_time_rest = time.time()
+
+        transformed_set = np.hstack(results_back)
+        print(transformed_set.shape)
+
+        '''
 
         transformation_list = list(itertools.chain(*[results_back]))
 
@@ -180,7 +199,10 @@ def extend_dataframe_complete(df=None, complexity=None, scoring=None, target=Non
 
         transformed_set = np.vstack((transformed_set, transformed_set_c))
 
-    transformed_set = transformed_set[1:]
+        print('rest time: ' + str(time.time() - start_time_rest))
+        '''
+
+    #transformed_set = transformed_set[1:]
 
     ### Feature Ordering
 
@@ -226,11 +248,12 @@ def add(X, y, df_train, current_names, deleted_idx, sensitive_feature, sensitive
     return [current_names_b, fair_scores_cr, acc_scores_cr, JCIT, candidate]
 
 
-def transform(X, candidate):
+def transform(candidate):
+    X = parallel_variables.chunk
     x_t = candidate.transform(X)
-    name = candidate.get_name().strip()
+    #name = candidate.get_name().strip()
 
-    return [name, x_t]
+    return x_t
 
 
 def identify_pareto(scores):

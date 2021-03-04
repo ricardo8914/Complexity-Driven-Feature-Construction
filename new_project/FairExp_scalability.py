@@ -3,7 +3,7 @@ from sklearn.model_selection import KFold
 import multiprocessing as mp
 from sklearn.metrics import make_scorer
 from sklearn.metrics import f1_score
-from fairexp_optimistic import extend_dataframe_complete, repair_algorithm_original
+from fairexp_optimistic import extend_dataframe_complete, repair_algorithm_original, repair_algorithm
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
@@ -30,6 +30,8 @@ results_path.mkdir(parents=True, exist_ok=True)
 
 df = pd.read_csv(path + '/Traffic_Violations_.csv', sep=',', header=0)
 df.dropna(inplace=True)
+
+df = df.sample(n=100000, replace=False, random_state=1)
 
 print(df.shape)
 
@@ -84,14 +86,15 @@ def scalability_experiment(sampling=0.1, complexity=4):
         train_df_e = df.iloc[retained_indices]
         test_df_e = df.iloc[test_indices]
 
-        selected_features_ = repair_algorithm_original(X_train, names, train_df_e, y_train, sensitive_feature,
+        selected_features_ = repair_algorithm(X_train, names, train_df_e, y_train, sensitive_feature,
                                               sensitive_features, protected,
                                               admissible_features, target,
                                               LogisticRegression(penalty='l2', C=1, solver='lbfgs',
                                                                  class_weight='balanced',
                                                                  max_iter=100000, multi_class='auto'),
-                                              sampling=sampling, results_path=home + '/Complexity-Driven-Feature-Construction/results',
-                                                       fold=fold)
+                                              sampling=sampling)
+
+        print('full time: ' + str(time.time() - start_time))
 
         selected_train = X_train[:, selected_features_]
         selected_test = X_test[:, selected_features_]
@@ -219,7 +222,8 @@ if __name__ == '__main__':
 
     mp.set_start_method('fork')
 
-    sampling_list = [0.001, 0.01, 0.1, 0.5]
+    #sampling_list = [0.001, 0.01, 0.1, 0.5]
+    sampling_list = [0.1]
 
     results = pd.DataFrame(columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime', 'Features', 'Constructed Features', 'Rows', 'Complexity'])

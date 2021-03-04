@@ -9,3 +9,5 @@ admissible = None
 clf = None
 names = None
 train = None
+
+chunk = None
