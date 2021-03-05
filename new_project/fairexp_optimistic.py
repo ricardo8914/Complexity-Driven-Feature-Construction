@@ -31,7 +31,9 @@ import parallel_variables
 
 
 def construct_features(df=None, complexity=None, scoring=None, target=None):
+    print("before")
     X = df.loc[:, [i for i in list(df) if i != target]]
+    print('after')
     y = np.ravel(df.loc[:, target].to_numpy())
 
     features2_scale = []
@@ -302,19 +304,19 @@ def run_evaluation_parallel(i):
     temp_acc_score, temp_fair_score, JCIT = run_evaluation(current_representation_train,
                                                            y_train, df_train,
                                                            sensitive_feature, sensitive_features, protected,
-                                                           current_names.copy(), admissible, clf)
+                                                           current_names.copy(), admissible, clf, parallelism=1)
 
     return {'temp_acc_score': temp_acc_score, 'temp_fair_score': temp_fair_score, 'JCIT': JCIT, 'i': i}
 
 
-def run_evaluation(x_train, y_train, df_train, sensitive_feature, sensitive_features, protected, current_names, admissible, clf):
+def run_evaluation(x_train, y_train, df_train, sensitive_feature, sensitive_features, protected, current_names, admissible, clf, parallelism=5):
     f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
     dict = {}
     for x in clf.get_params():
         dict[x] = list([clf.get_params()[x]])
     cv_scores = GridSearchCV(clf,
                              param_grid=dict,
-                             n_jobs=1,#todo
+                             n_jobs=parallelism,#todo
                              scoring=f1,
                              cv=KFold(n_splits=5, random_state=66, shuffle=True))
     cv_scores.fit(x_train, y_train)
@@ -350,7 +352,7 @@ def run_evaluation(x_train, y_train, df_train, sensitive_feature, sensitive_feat
 
 
 def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensitive_features, protected, admissible_features,
-                     target, clf, sampling):
+                     target, clf, sampling, number_of_paralllelism=mp.cpu_count()):
 
     if sampling < 1.0:
         sample_idx_all = np.random.randint(df_train.shape[0], size=round(df_train.shape[0] * sampling))
@@ -372,7 +374,6 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
 
     ## First Phase
     i = 0
-    number_of_paralllelism = mp.cpu_count()#4
     print("cpu count: " + str(number_of_paralllelism))
     while i < train.shape[1]:
 
@@ -387,6 +388,10 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
         parallel_variables.protected = protected
         parallel_variables.admissible = admissible_features
         parallel_variables.clf = clf
+        if number_of_paralllelism == 1:
+            parallel_variables.kfold_parallelism = 5
+        else:
+            parallel_variables.kfold_parallelism = 1
 
         to_be_investigated_optimistically = []
         for ii in range(number_of_paralllelism):
@@ -484,112 +489,112 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
 
     ## Second Phase
 
-    # deleted_idx = []
-    # candidates = []
-    # for idz, z in enumerate(current_names):
-    #     c = current_names.copy()
-    #     c.remove(z)
-    #     if c not in explored_representations:
-    #         candidates.append(idz)
-    #     else:
-    #         continue
-    #
-    # complexity_order = []
-    # for s in candidates:
-    #     ids = names.index(current_names[s])
-    #     complexity_order.append((s, ids))
-    #
-    # complexity_order.sort(key=lambda x: x[1])
-    #
-    # sorted_candidates = [t[0] for t in complexity_order]
-    #
-    # current_names_b = current_names.copy()
-    #
-    # for f in sorted_candidates:
-    #     deleted_idx.append(f)
-    #
-    #     if current_representation_train.shape[1] > len(deleted_idx):
-    #         current_representation_train_b = np.delete(current_representation_train, deleted_idx, 1)
-    #         current_names_b.remove(current_names[f])
-    #         explored_representations.append(current_names_b.copy())
-    #
-    #         temp_acc_score, temp_fair_score, JCIT = run_evaluation(current_representation_train_b,
-    #                                                                y_train,
-    #                                                                df_train,
-    #                                                                sensitive_feature,
-    #                                                                sensitive_features, protected,
-    #                                                                current_names_b.copy(),
-    #                                                                admissible_features, clf)
-    #
-    #         if temp_fair_score >= global_fair_score:
-    #             global_fair_score = temp_fair_score
-    #             global_acc_score = temp_acc_score
-    #
-    #             registered_representations_train.append(
-    #                 [current_names_b.copy(), len(current_names_b.copy()), temp_acc_score, temp_fair_score, JCIT,
-    #                  'Phase 2'])
-    #
-    #             candidates_b = []
-    #             if len(deleted_idx) > 0:
-    #                 for idz, z in enumerate([current_names[f] for f in deleted_idx]):
-    #                     c = current_names_b.copy()
-    #                     c.append(z)
-    #                     if c not in explored_representations:
-    #                         candidates_b.append(deleted_idx[idz])
-    #                     else:
-    #                         continue
-    #
-    #                 if len(candidates_b) > 0:
-    #
-    #                     pool = mp.Pool(mp.cpu_count())
-    #                     func = partial(add, current_representation_train, y_train,
-    #                                    df_train, current_names.copy(), deleted_idx, sensitive_feature,
-    #                                    sensitive_features, target, protected, clf)
-    #                     results_back = pool.map(func, candidates_b)
-    #                     pool.close()
-    #
-    #                     floating_evaluation = list(itertools.chain(*[results_back]))
-    #
-    #                     for f in floating_evaluation:
-    #                         registered_representations_train.append(
-    #                             [f[0], len(f[0]), f[2], f[1], f[3], 'Phase 2 - floating'])
-    #                         explored_representations.extend(f[0])
-    #
-    #                     fair_floating_scores = [y[1] for y in floating_evaluation]
-    #                     max_index = fair_floating_scores.index(max(fair_floating_scores))
-    #                     max_fair_floating = max(fair_floating_scores)
-    #
-    #                     if max_fair_floating > global_fair_score:
-    #                         global_fair_score = max_fair_floating
-    #                         global_acc_score = floating_evaluation[max_index][2]
-    #                         deleted_idx.remove(floating_evaluation[max_index][4])
-    #                         current_names_b = floating_evaluation[max_index][0]
-    #                         current_names_b.sort()
-    #
-    #                     else:
-    #                         pass
-    #
-    #                 else:
-    #                     pass
-    #     else:
-    #         pass
-    #
-    # scores = np.asarray([[f[2], f[3]] for f in registered_representations_train])
-    # scores[:, 0] = np.ravel(MinMaxScaler().fit_transform(scores[:, 0].reshape((scores.shape[0], 1))))
-    #
-    # pareto = identify_pareto(scores)
-    # pareto_front = scores[pareto]
-    #
-    # ideal_point = np.asarray([1, 0])
-    # dist = np.empty((pareto_front.shape[0], 1))
-    #
-    # for idx, i in enumerate(pareto_front):
-    #     dist[idx] = norm(i - ideal_point)
-    #
-    # min_dist = np.argmin(dist)
-    #
-    # selected_representation = registered_representations_train[pareto[min_dist]][0]
-    # selected_indices = [names.index(f) for f in selected_representation]
+    deleted_idx = []
+    candidates = []
+    for idz, z in enumerate(current_names):
+        c = current_names.copy()
+        c.remove(z)
+        if c not in explored_representations:
+            candidates.append(idz)
+        else:
+            continue
+
+    complexity_order = []
+    for s in candidates:
+        ids = names.index(current_names[s])
+        complexity_order.append((s, ids))
+
+    complexity_order.sort(key=lambda x: x[1])
+
+    sorted_candidates = [t[0] for t in complexity_order]
+
+    current_names_b = current_names.copy()
+
+    for f in sorted_candidates:
+        deleted_idx.append(f)
+
+        if current_representation_train.shape[1] > len(deleted_idx):
+            current_representation_train_b = np.delete(current_representation_train, deleted_idx, 1)
+            current_names_b.remove(current_names[f])
+            explored_representations.append(current_names_b.copy())
+
+            temp_acc_score, temp_fair_score, JCIT = run_evaluation(current_representation_train_b,
+                                                                   y_train,
+                                                                   df_train,
+                                                                   sensitive_feature,
+                                                                   sensitive_features, protected,
+                                                                   current_names_b.copy(),
+                                                                   admissible_features, clf)
+
+            if temp_fair_score >= global_fair_score:
+                global_fair_score = temp_fair_score
+                global_acc_score = temp_acc_score
+
+                registered_representations_train.append(
+                    [current_names_b.copy(), len(current_names_b.copy()), temp_acc_score, temp_fair_score, JCIT,
+                     'Phase 2'])
+
+                candidates_b = []
+                if len(deleted_idx) > 0:
+                    for idz, z in enumerate([current_names[f] for f in deleted_idx]):
+                        c = current_names_b.copy()
+                        c.append(z)
+                        if c not in explored_representations:
+                            candidates_b.append(deleted_idx[idz])
+                        else:
+                            continue
+
+                    if len(candidates_b) > 0:
+
+                        pool = mp.Pool(mp.cpu_count())
+                        func = partial(add, current_representation_train, y_train,
+                                       df_train, current_names.copy(), deleted_idx, sensitive_feature,
+                                       sensitive_features, target, protected, clf)
+                        results_back = pool.map(func, candidates_b)
+                        pool.close()
+
+                        floating_evaluation = list(itertools.chain(*[results_back]))
+
+                        for f in floating_evaluation:
+                            registered_representations_train.append(
+                                [f[0], len(f[0]), f[2], f[1], f[3], 'Phase 2 - floating'])
+                            explored_representations.extend(f[0])
+
+                        fair_floating_scores = [y[1] for y in floating_evaluation]
+                        max_index = fair_floating_scores.index(max(fair_floating_scores))
+                        max_fair_floating = max(fair_floating_scores)
+
+                        if max_fair_floating > global_fair_score:
+                            global_fair_score = max_fair_floating
+                            global_acc_score = floating_evaluation[max_index][2]
+                            deleted_idx.remove(floating_evaluation[max_index][4])
+                            current_names_b = floating_evaluation[max_index][0]
+                            current_names_b.sort()
+
+                        else:
+                            pass
+
+                    else:
+                        pass
+        else:
+            pass
+
+    scores = np.asarray([[f[2], f[3]] for f in registered_representations_train])
+    scores[:, 0] = np.ravel(MinMaxScaler().fit_transform(scores[:, 0].reshape((scores.shape[0], 1))))
+
+    pareto = identify_pareto(scores)
+    pareto_front = scores[pareto]
+
+    ideal_point = np.asarray([1, 0])
+    dist = np.empty((pareto_front.shape[0], 1))
+
+    for idx, i in enumerate(pareto_front):
+        dist[idx] = norm(i - ideal_point)
+
+    min_dist = np.argmin(dist)
+
+    selected_representation = registered_representations_train[pareto[min_dist]][0]
+    selected_indices = [names.index(f) for f in selected_representation]
 
     return selected_indices_first_phase
 

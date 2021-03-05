@@ -9,5 +9,6 @@ admissible = None
 clf = None
 names = None
 train = None
+kfold_parallelism = None
 
 chunk = None

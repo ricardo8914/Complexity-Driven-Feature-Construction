@@ -212,8 +212,7 @@ def scalability_experiment(sampling=0.1, complexity=4):
                               columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime', 'Features', 'Constructed Features', 'Rows', 'Complexity'])
 
-    # results_df.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_scalabality.csv',
-    #                   index=False)
+    results_df.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_scalabality.csv',index=False)
 
     return results_df
 
@@ -233,5 +232,5 @@ if __name__ == '__main__':
         results = results.append(a)
 
     results.to_csv(
-        path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_scalability_experiments.csv',
-        index=False)
+            path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_scalability_experiments.csv',
+            index=False)
