@@ -231,6 +231,6 @@ if __name__ == '__main__':
         a = scalability_experiment(sampling=i, complexity=3)
         results = results.append(a)
 
-    results.to_csv(
-            path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_scalability_experiments.csv',
-            index=False)
+        results.to_csv(
+                path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_scalability_experiments.csv',
+                index=False)

@@ -140,7 +140,7 @@ def german_experiment():
                                                                  class_weight='balanced',
                                                                  max_iter=100000, multi_class='auto'),
                                               sampling=1.0, results_path=home + '/Complexity-Driven-Feature-Construction/results',
-                                                       fold=fold)
+                                                       fold=fold, dataset_name='german')
 
         selected_train = X_train_fairexp[:, selected_features_]
         selected_test = X_test_fairexp[:, selected_features_]
@@ -927,8 +927,8 @@ def german_experiment():
                               columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime'])
 
-    # results_df.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_experiment_credit_df.csv',
-    #                   index=False)
+    results_df.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_experiment_credit_df.csv',
+                       index=False)
 
     return results_df
 
