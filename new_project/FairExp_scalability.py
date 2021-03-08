@@ -3,7 +3,7 @@ from sklearn.model_selection import KFold
 import multiprocessing as mp
 from sklearn.metrics import make_scorer
 from sklearn.metrics import f1_score
-from fairexp_optimistic import extend_dataframe_complete, repair_algorithm_original, repair_algorithm
+from fairexp_optimistic import extend_dataframe_complete, repair_algorithm
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
