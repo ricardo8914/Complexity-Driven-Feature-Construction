@@ -92,7 +92,7 @@ def scalability_experiment(sampling=0.1, complexity=4):
                                               LogisticRegression(penalty='l2', C=1, solver='lbfgs',
                                                                  class_weight='balanced',
                                                                  max_iter=100000, multi_class='auto'),
-                                              sampling=sampling)
+                                              sampling=sampling, number_of_paralllelism=5, kfold_parallelism=5)
 
         print('full time: ' + str(time.time() - start_time))
 
@@ -222,7 +222,7 @@ if __name__ == '__main__':
     mp.set_start_method('fork')
 
     #sampling_list = [0.001, 0.01, 0.1, 0.5]
-    sampling_list = [0.001, 0.01, 0.1, 0.5]
+    sampling_list = [0.1]
 
     results = pd.DataFrame(columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime', 'Features', 'Constructed Features', 'Rows', 'Complexity'])

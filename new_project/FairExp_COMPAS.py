@@ -2,7 +2,7 @@ from sklearn.model_selection import KFold
 import multiprocessing as mp
 from sklearn.metrics import make_scorer
 from sklearn.metrics import f1_score
-from fairexp import extend_dataframe_complete, repair_algorithm_original
+from fairexp_optimistic import extend_dataframe_complete, repair_algorithm
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
@@ -147,14 +147,14 @@ def COMPAS_experiment():
         train_df_e.reset_index(inplace=True, drop=True)
         test_df_e.reset_index(inplace=True, drop=True)
 
-        selected_features_ = repair_algorithm_original(X_train_fairexp, names, train_df_e, y_train_fairexp, sensitive_feature,
+        selected_features_ = repair_algorithm(X_train_fairexp, names, train_df_e, y_train_fairexp, sensitive_feature,
                                               sensitive_features, protected,
                                               admissible_features, target,
                                               LogisticRegression(penalty='l2', C=1, solver='lbfgs',
                                                                  class_weight='balanced',
                                                                  max_iter=100000, multi_class='auto'),
                                               sampling=1.0, results_path=home + '/Complexity-Driven-Feature-Construction/results',
-                                                       fold=fold)
+                                                       fold=fold, dataset_name='compas')
 
         selected_train = X_train_fairexp[:, selected_features_]
         selected_test = X_test_fairexp[:, selected_features_]
@@ -931,8 +931,8 @@ def COMPAS_experiment():
                               columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime'])
 
-    # results_df.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_experiment_COMPAS.csv',
-    #                   index=False)
+    results_df.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_experiment_COMPAS.csv',
+                       index=False)
 
     return results_df
 

@@ -4,6 +4,7 @@ import multiprocessing as mp
 from sklearn.metrics import make_scorer
 from sklearn.metrics import f1_score
 from fairexp_optimistic import extend_dataframe_complete, repair_algorithm
+#from fairexp import extend_dataframe_complete, repair_algorithm
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
@@ -64,7 +65,7 @@ if __name__ == '__main__':
 
         start_time = time.time()
 
-        X, names, retained_indices, valid_indices = extend_dataframe_complete(df=adult, complexity=2, scoring=f1,
+        X, names, retained_indices, valid_indices = extend_dataframe_complete(df=adult, complexity=4, scoring=f1,
                                                                               target=target, sampling=0.05,
                                                                               train_indices=train_index)
 
@@ -85,6 +86,8 @@ if __name__ == '__main__':
                                                                             class_weight='balanced',
                                                                             max_iter=100000, multi_class='auto'),
                                                          sampling=0.05)
+
+        print('full time: ' + str(time.time() - start_time))
 
         selected_train = X_train[:, selected_features_]
         selected_test = X_test[:, selected_features_]

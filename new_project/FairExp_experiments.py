@@ -17,11 +17,11 @@ if __name__ == '__main__':
 
     mp.set_start_method('fork')
 
+    german_results = german_experiment()
     adult_results = adult_experiment()
     compas_results = COMPAS_experiment()
-    german_results = german_experiment()
 
-    all_results = pd.concat([adult_results, compas_results, german_results], axis=0, ignore_index=True)
+    all_results = pd.concat([german_results, adult_results, compas_results], axis=0, ignore_index=True)
 
     all_results.to_csv(
         path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_experiments.csv',
