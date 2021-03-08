@@ -353,7 +353,7 @@ def run_evaluation(x_train, y_train, df_train, sensitive_feature, sensitive_feat
 
 
 def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensitive_features, protected, admissible_features,
-                     target, clf, sampling, number_of_paralllelism=mp.cpu_count(), results_path='/tmp', fold=-1, dataset_name='data'):
+                     target, clf, sampling, number_of_paralllelism=mp.cpu_count(), results_path='/tmp', fold=-1, dataset_name='data', kfold_parallelism=1):
 
     if sampling < 1.0:
         sample_idx_all = np.random.randint(df_train.shape[0], size=round(df_train.shape[0] * sampling))
@@ -389,10 +389,7 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
         parallel_variables.protected = protected
         parallel_variables.admissible = admissible_features
         parallel_variables.clf = clf
-        if number_of_paralllelism == 1:
-            parallel_variables.kfold_parallelism = 5
-        else:
-            parallel_variables.kfold_parallelism = 1
+        parallel_variables.kfold_parallelism = kfold_parallelism
 
         to_be_investigated_optimistically = []
         for ii in range(number_of_paralllelism):
