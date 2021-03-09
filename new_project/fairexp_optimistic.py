@@ -238,9 +238,10 @@ def eliminate(X, y, df_train, current_names, sensitive_feature,sensitive_feature
 
 def add(X, y, df_train, current_names, deleted_idx, sensitive_feature, sensitive_features, target, protected, clf, candidate, kfold_parallelism=5):
     admissible_features = [f for f in list(df_train) if f not in sensitive_features and f != target]
-    deleted_idx.remove(candidate)
-    current_names_b = [current_names[f] for f in range(len(current_names)) if f not in deleted_idx]
-    floating_b = np.delete(X, deleted_idx, 1)
+    deleted_idx_copy = deleted_idx.copy()
+    deleted_idx_copy.remove(candidate)
+    current_names_b = [current_names[f] for f in range(len(current_names)) if f not in deleted_idx_copy]
+    floating_b = np.delete(X, deleted_idx_copy, 1)
 
     acc_scores_cr, fair_scores_cr, JCIT = run_evaluation(floating_b, y, df_train,
                                                                           sensitive_feature, sensitive_features,
