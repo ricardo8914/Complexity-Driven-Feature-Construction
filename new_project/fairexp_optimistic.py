@@ -222,7 +222,7 @@ def extend_dataframe_complete(df=None, complexity=None, scoring=None, target=Non
     return features, sorted_names, retrain_indices, drop_indices
 
 
-def eliminate(X, y, df_train, current_names, sensitive_feature,sensitive_features, target, protected,  clf, candidate):
+def eliminate(X, y, df_train, current_names, sensitive_feature,sensitive_features, target, protected,  clf, candidate, kfold_parallelism=5):
     admissible_features = [f for f in list(df_train) if f not in sensitive_features and f != target]
     d = current_names.copy()
     del d[candidate]
@@ -231,12 +231,12 @@ def eliminate(X, y, df_train, current_names, sensitive_feature,sensitive_feature
     acc_scores_cr, fair_scores_cr, JCIT = run_evaluation(floating_r, y, df_train,
                                                                         sensitive_feature, sensitive_features,
                                                                         protected, d.copy(),
-                                                                        admissible_features, clf)
+                                                                        admissible_features, clf, parallelism=kfold_parallelism)
 
     return [d, fair_scores_cr, acc_scores_cr, JCIT, candidate]
 
 
-def add(X, y, df_train, current_names, deleted_idx, sensitive_feature, sensitive_features, target, protected, clf, candidate):
+def add(X, y, df_train, current_names, deleted_idx, sensitive_feature, sensitive_features, target, protected, clf, candidate, kfold_parallelism=5):
     admissible_features = [f for f in list(df_train) if f not in sensitive_features and f != target]
     deleted_idx.remove(candidate)
     current_names_b = [current_names[f] for f in range(len(current_names)) if f not in deleted_idx]
@@ -245,7 +245,7 @@ def add(X, y, df_train, current_names, deleted_idx, sensitive_feature, sensitive
     acc_scores_cr, fair_scores_cr, JCIT = run_evaluation(floating_b, y, df_train,
                                                                           sensitive_feature, sensitive_features,
                                                                           protected, current_names_b.copy(),
-                                                                          admissible_features, clf)
+                                                                          admissible_features, clf, parallelism=kfold_parallelism)
 
     return [current_names_b, fair_scores_cr, acc_scores_cr, JCIT, candidate]
 
@@ -446,10 +446,10 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
                 if len(candidates_f) > 0:
 
 
-                    pool = mp.Pool(mp.cpu_count())
+                    pool = mp.Pool(number_of_paralllelism)
                     func = partial(eliminate, current_representation_train, y_train, df_train,
                                           current_names.copy(),
-                                          sensitive_feature, sensitive_features, target, protected, clf)
+                                          sensitive_feature, sensitive_features, target, protected, clf, kfold_parallelism=kfold_parallelism)
                     results_back = pool.map(func, candidates_f)
                     pool.close()
 
@@ -522,7 +522,7 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
                                                                    sensitive_feature,
                                                                    sensitive_features, protected,
                                                                    current_names_b.copy(),
-                                                                   admissible_features, clf)
+                                                                   admissible_features, clf, parallelism=kfold_parallelism)
 
             if temp_fair_score >= global_fair_score:
                 global_fair_score = temp_fair_score
@@ -544,10 +544,10 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
 
                     if len(candidates_b) > 0:
 
-                        pool = mp.Pool(mp.cpu_count())
+                        pool = mp.Pool(number_of_paralllelism)
                         func = partial(add, current_representation_train, y_train,
                                        df_train, current_names.copy(), deleted_idx, sensitive_feature,
-                                       sensitive_features, target, protected, clf)
+                                       sensitive_features, target, protected, clf, kfold_parallelism)
                         results_back = pool.map(func, candidates_b)
                         pool.close()
 
@@ -604,7 +604,7 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
 
     print('done')
 
-    return selected_indices_first_phase
+    return selected_indices
 
 
 
