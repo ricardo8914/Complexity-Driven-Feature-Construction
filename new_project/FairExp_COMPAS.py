@@ -459,78 +459,78 @@ def COMPAS_experiment():
 
         ###### NSGAII
 
-        start_time = time.time()
-
-        selected_NSGAII = evaluate_NSGAII(X_train_fairexp, df=train_df_e, target=target, sensitive=sensitive_feature,
-                                          protected=protected, sampling=0.05)
-
-        selected_names_NSGAII = [names[idf] for idf, f in enumerate(selected_NSGAII) if f == True]
-
-        NSGAII_pipeline = Pipeline(steps=[
-            ('clf',
-             LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                class_weight='balanced',
-                                max_iter=100000, multi_class='auto', n_jobs=-1))])
-
-        NSGAII_model = GridSearchCV(NSGAII_pipeline, param_grid={
-            'clf__penalty': ['l2'], 'clf__C': [1.0], 'clf__solver': ['lbfgs'],
-            'clf__class_weight': [None, 'balanced'],
-            'clf__max_iter': [100000], 'clf__multi_class': ['auto'], 'clf__n_jobs': [-1]
-        },
-                                    n_jobs=-1,
-                                    scoring='f1', cv=5)
-
-        X_train_NSGAII = X_train_fairexp[:, selected_NSGAII]
-        X_test_NSGAII = X_test_fairexp[:, selected_NSGAII]
-
-        NSGAII_pipeline.fit(X_train_NSGAII, y_train_fairexp)
-
-        predicted_NSGAII = NSGAII_pipeline.predict(X_test_NSGAII)
-        predicted_NSGAII_proba = NSGAII_pipeline.predict_proba(X_test_NSGAII)[:, 1]
-        outcomes_df = pd.DataFrame(predicted_NSGAII_proba, columns=['outcome'])
-        features_df = test_df_e.reset_index(drop=True)
-
-        candidate_df = pd.concat([features_df, outcomes_df], axis=1)
-
-        JCIT, mb = causal_filter(candidate_df, sensitive_features)
-
-        rod_NSGAII = ROD.ROD(y_pred=predicted_NSGAII_proba, df=test_df_e,
-                             sensitive=sensitive_feature,
-                             admissible=admissible_features, protected=protected, mb=mb)
-
-        dp_NSGAII = demographic_parity_difference(y_test_fairexp, predicted_NSGAII,
-                                                  sensitive_features=test_df_e.loc[:, sensitive_feature])
-        tpr_NSGAII = MetricFrame(true_positive_rate, y_test_fairexp, predicted_NSGAII,
-                                 sensitive_features=test_df_e.loc[:, sensitive_feature])
-        tpb_NSGAII = tpr_NSGAII.difference()
-        tnr_NSGAII = MetricFrame(true_negative_rate, y_test_fairexp, predicted_NSGAII,
-                                 sensitive_features=test_df_e.loc[:, sensitive_feature])
-        tnb_NSGAII = tnr_NSGAII.difference()
-
-        cdp_NSGAII = CDP.CDP(y_test_fairexp, predicted_NSGAII, test_df_e, sensitive_feature,
-                             admissible_features)
-        ctpb_NSGAII = CTPB.CTPB(y_test_fairexp, predicted_NSGAII, test_df_e, sensitive_feature,
-                                admissible_features)
-        ctnb_NSGAII = CTNB.CTNB(y_test_fairexp, predicted_NSGAII, test_df_e, sensitive_feature,
-                                admissible_features)
-
-        f1_NSGAII = f1_score(y_test_fairexp, predicted_NSGAII)
-
-        end_time = time.time() - start_time + end_time_fc
-
-        print('ROD NSGAII: ' + str(rod_NSGAII))
-        print('DP NSGAII: ' + str(dp_NSGAII))
-        print('TPB NSGAII: ' + str(tpb_NSGAII))
-        print('TNB NSGAII: ' + str(tnb_NSGAII))
-        print('CTPB NSGAII: ' + str(ctpb_NSGAII))
-        print('CTNB NSGAII: ' + str(ctnb_NSGAII))
-        print('F1 NSGAII: ' + str(f1_NSGAII))
-
-        results.append(
-            ['COMPAS', 'NSGAII', selected_names_NSGAII, fold, rod_NSGAII,
-             dp_NSGAII, tpb_NSGAII, tnb_NSGAII,
-             cdp_NSGAII,
-             ctpb_NSGAII, ctnb_NSGAII, f1_NSGAII, end_time])
+        # start_time = time.time()
+        #
+        # selected_NSGAII = evaluate_NSGAII(X_train_fairexp, df=train_df_e, target=target, sensitive=sensitive_feature,
+        #                                   protected=protected, sampling=0.05)
+        #
+        # selected_names_NSGAII = [names[idf] for idf, f in enumerate(selected_NSGAII) if f == True]
+        #
+        # NSGAII_pipeline = Pipeline(steps=[
+        #     ('clf',
+        #      LogisticRegression(penalty='l2', C=1, solver='lbfgs',
+        #                         class_weight='balanced',
+        #                         max_iter=100000, multi_class='auto', n_jobs=-1))])
+        #
+        # NSGAII_model = GridSearchCV(NSGAII_pipeline, param_grid={
+        #     'clf__penalty': ['l2'], 'clf__C': [1.0], 'clf__solver': ['lbfgs'],
+        #     'clf__class_weight': [None, 'balanced'],
+        #     'clf__max_iter': [100000], 'clf__multi_class': ['auto'], 'clf__n_jobs': [-1]
+        # },
+        #                             n_jobs=-1,
+        #                             scoring='f1', cv=5)
+        #
+        # X_train_NSGAII = X_train_fairexp[:, selected_NSGAII]
+        # X_test_NSGAII = X_test_fairexp[:, selected_NSGAII]
+        #
+        # NSGAII_pipeline.fit(X_train_NSGAII, y_train_fairexp)
+        #
+        # predicted_NSGAII = NSGAII_pipeline.predict(X_test_NSGAII)
+        # predicted_NSGAII_proba = NSGAII_pipeline.predict_proba(X_test_NSGAII)[:, 1]
+        # outcomes_df = pd.DataFrame(predicted_NSGAII_proba, columns=['outcome'])
+        # features_df = test_df_e.reset_index(drop=True)
+        #
+        # candidate_df = pd.concat([features_df, outcomes_df], axis=1)
+        #
+        # JCIT, mb = causal_filter(candidate_df, sensitive_features)
+        #
+        # rod_NSGAII = ROD.ROD(y_pred=predicted_NSGAII_proba, df=test_df_e,
+        #                      sensitive=sensitive_feature,
+        #                      admissible=admissible_features, protected=protected, mb=mb)
+        #
+        # dp_NSGAII = demographic_parity_difference(y_test_fairexp, predicted_NSGAII,
+        #                                           sensitive_features=test_df_e.loc[:, sensitive_feature])
+        # tpr_NSGAII = MetricFrame(true_positive_rate, y_test_fairexp, predicted_NSGAII,
+        #                          sensitive_features=test_df_e.loc[:, sensitive_feature])
+        # tpb_NSGAII = tpr_NSGAII.difference()
+        # tnr_NSGAII = MetricFrame(true_negative_rate, y_test_fairexp, predicted_NSGAII,
+        #                          sensitive_features=test_df_e.loc[:, sensitive_feature])
+        # tnb_NSGAII = tnr_NSGAII.difference()
+        #
+        # cdp_NSGAII = CDP.CDP(y_test_fairexp, predicted_NSGAII, test_df_e, sensitive_feature,
+        #                      admissible_features)
+        # ctpb_NSGAII = CTPB.CTPB(y_test_fairexp, predicted_NSGAII, test_df_e, sensitive_feature,
+        #                         admissible_features)
+        # ctnb_NSGAII = CTNB.CTNB(y_test_fairexp, predicted_NSGAII, test_df_e, sensitive_feature,
+        #                         admissible_features)
+        #
+        # f1_NSGAII = f1_score(y_test_fairexp, predicted_NSGAII)
+        #
+        # end_time = time.time() - start_time + end_time_fc
+        #
+        # print('ROD NSGAII: ' + str(rod_NSGAII))
+        # print('DP NSGAII: ' + str(dp_NSGAII))
+        # print('TPB NSGAII: ' + str(tpb_NSGAII))
+        # print('TNB NSGAII: ' + str(tnb_NSGAII))
+        # print('CTPB NSGAII: ' + str(ctpb_NSGAII))
+        # print('CTNB NSGAII: ' + str(ctnb_NSGAII))
+        # print('F1 NSGAII: ' + str(f1_NSGAII))
+        #
+        # results.append(
+        #     ['COMPAS', 'NSGAII', selected_names_NSGAII, fold, rod_NSGAII,
+        #      dp_NSGAII, tpb_NSGAII, tnb_NSGAII,
+        #      cdp_NSGAII,
+        #      ctpb_NSGAII, ctnb_NSGAII, f1_NSGAII, end_time])
 
         ##### Kamiran massaging
 

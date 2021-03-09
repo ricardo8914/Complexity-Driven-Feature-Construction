@@ -578,12 +578,13 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
             pass
 
     scores = np.asarray([[f[2], f[3]] for f in registered_representations_train])
-    scores[:, 0] = np.ravel(MinMaxScaler().fit_transform(scores[:, 0].reshape((scores.shape[0], 1))))
+    scores = scores.reshape((len(registered_representations_train), 2))
+    scores = MinMaxScaler().fit_transform(scores)
 
     pareto = identify_pareto(scores)
     pareto_front = scores[pareto]
 
-    ideal_point = np.asarray([1, 0])
+    ideal_point = np.asarray([1, 1])
     dist = np.empty((pareto_front.shape[0], 1))
 
     for idx, i in enumerate(pareto_front):
