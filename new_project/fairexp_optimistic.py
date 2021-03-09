@@ -398,7 +398,7 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
                 print(i+ii)
                 to_be_investigated_optimistically.append(i + ii)
 
-        pool = mp.Pool(min([number_of_paralllelism, len(to_be_investigated_optimistically)]))
+        pool = mp.Pool(number_of_paralllelism)
         results_back = pool.map(run_evaluation_parallel, to_be_investigated_optimistically)
         pool.close()
 
