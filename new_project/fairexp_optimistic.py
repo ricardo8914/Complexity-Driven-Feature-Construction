@@ -548,7 +548,7 @@ def repair_algorithm(train, names, df_train, y_train, sensitive_feature, sensiti
                         pool = mp.Pool(number_of_paralllelism)
                         func = partial(add, current_representation_train, y_train,
                                        df_train, current_names.copy(), deleted_idx, sensitive_feature,
-                                       sensitive_features, target, protected, clf, kfold_parallelism)
+                                       sensitive_features, target, protected, clf, kfold_parallelism=kfold_parallelism)
                         results_back = pool.map(func, candidates_b)
                         pool.close()
 
@@ -693,7 +693,7 @@ def evaluate(df, complexity, clf, acc_score, sensitive_feature, inadmissible_fea
 
                         pool = mp.Pool(mp.cpu_count())
                         func = partial(eliminate, current_representation_train, y_train, df_train, current_names.copy(),
-                                       sensitive_features, target, protected, clf)
+                                       sensitive_features, target, protected, clf, kfold_parallelism=5)
                         results_back = pool.map(func, candidates_f)
                         pool.close()
 
@@ -787,7 +787,7 @@ def evaluate(df, complexity, clf, acc_score, sensitive_feature, inadmissible_fea
                             pool = mp.Pool(mp.cpu_count())
                             func = partial(add, current_representation_train, y_train,
                                            df_train, current_names.copy(), deleted_idx, sensitive_feature,
-                                           sensitive_features, target, protected, clf)
+                                           sensitive_features, target, protected, clf, kfold_parallelism=5)
                             results_back = pool.map(func, candidates_b)
                             pool.close()
 
