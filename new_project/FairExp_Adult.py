@@ -78,7 +78,7 @@ def adult_experiment():
 
         start_time = time.time()
 
-        X, names, retained_indices, valid_indices = extend_dataframe_complete(df=adult, complexity=3, scoring=f1,
+        X, names, retained_indices, valid_indices = extend_dataframe_complete(df=adult, complexity=4, scoring=f1,
                                                                               target=target, sampling=1.0,
                                                                               train_indices=train_index,
                                                                               prefiltering=False)
