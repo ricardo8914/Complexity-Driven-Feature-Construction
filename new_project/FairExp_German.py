@@ -21,6 +21,7 @@ from experiments.NSGAII import evaluate_NSGAII
 from benchmark.kamiran.massaging import massaging
 from benchmark.kamiran.reweighting import reweighting
 import openml
+from sklearn.neural_network import MLPClassifier
 
 from pathlib import Path
 
@@ -101,7 +102,7 @@ f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 kf1 = KFold(n_splits=5, random_state=42, shuffle=True)
 
 
-def german_experiment():
+def german_experiment(number_model_parallelism=mp.cpu_count(), number_speculativ_parallelism=1, number_kfold_parallelism=1):
     sensitive_feature = 'age'
     inadmissible_features = []
     sensitive_features = [sensitive_feature]
@@ -133,14 +134,28 @@ def german_experiment():
         train_df_e.reset_index(inplace=True, drop=True)
         test_df_e.reset_index(inplace=True, drop=True)
 
+        my_model = LogisticRegression(penalty='l2', C=1, solver='lbfgs',
+                                                                 class_weight='balanced',
+                                                                 max_iter=100000, multi_class='auto')
+
+        param_grid = {
+            'clf__penalty': ['l2'], 'clf__C': [1.0], 'clf__solver': ['lbfgs'],
+            'clf__class_weight': ['balanced'],
+            'clf__max_iter': [100000], 'clf__multi_class': ['auto'], 'clf__n_jobs': [number_model_parallelism]
+        }
+        '''
+        my_model = MLPClassifier(random_state=1, max_iter=200)
+        param_grid = {
+            'max_iter': [200]
+        }
+        '''''
+
         selected_features_ = repair_algorithm(X_train_fairexp, names, train_df_e, y_train_fairexp, sensitive_feature,
                                               sensitive_features, protected,
                                               admissible_features, target,
-                                              LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                                                 class_weight='balanced',
-                                                                 max_iter=100000, multi_class='auto'),
+                                              my_model,
                                               sampling=1.0, results_path=home + '/Complexity-Driven-Feature-Construction/results',
-                                                       fold=fold, dataset_name='german')
+                                                       fold=fold, dataset_name='german', number_of_paralllelism=number_speculativ_parallelism, kfold_parallelism=number_kfold_parallelism)
 
         selected_train = X_train_fairexp[:, selected_features_]
         selected_test = X_test_fairexp[:, selected_features_]
@@ -180,16 +195,9 @@ def german_experiment():
             remainder='passthrough')
 
         FairExp_pipeline = Pipeline(steps=[#('preprocessor', preprocessor),
-                                           ('clf',
-                                            LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                                               class_weight='balanced',
-                                                               max_iter=100000, multi_class='auto'))])
+                                           ('clf',my_model)])
 
-        FairExp_model = GridSearchCV(FairExp_pipeline, param_grid={
-            'clf__penalty': ['l2'], 'clf__C': [1.0], 'clf__solver': ['lbfgs'],
-            'clf__class_weight': ['balanced'],
-            'clf__max_iter': [100000], 'clf__multi_class': ['auto'], 'clf__n_jobs': [-1]
-        },
+        FairExp_model = GridSearchCV(FairExp_pipeline, param_grid=param_grid,
                                      n_jobs=-1,
                                      scoring='f1', cv=5)
 
@@ -289,15 +297,9 @@ def german_experiment():
 
         original_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
                                             ('clf',
-                                             LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                                                class_weight='balanced',
-                                                                max_iter=100000, multi_class='auto'))])
+                                             my_model)])
 
-        original_model = GridSearchCV(original_pipeline, param_grid={
-            'clf__penalty': ['l2'], 'clf__C': [1.0], 'clf__solver': ['lbfgs'],
-            'clf__class_weight': ['balanced'],
-            'clf__max_iter': [100000], 'clf__multi_class': ['auto'], 'clf__n_jobs': [-1]
-        },
+        original_model = GridSearchCV(original_pipeline, param_grid=param_grid,
                                       n_jobs=-1,
                                       scoring='f1', cv=5)
 
@@ -380,15 +382,9 @@ def german_experiment():
 
         dropped_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
                                            ('clf',
-                                            LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                                               class_weight='balanced',
-                                                               max_iter=100000, multi_class='auto'))])
+                                            my_model)])
 
-        dropped_model = GridSearchCV(dropped_pipeline, param_grid={
-            'clf__penalty': ['l2'], 'clf__C': [1.0], 'clf__solver': ['lbfgs'],
-            'clf__class_weight': [None, 'balanced'],
-            'clf__max_iter': [100000], 'clf__multi_class': ['auto'], 'clf__n_jobs': [-1]
-        },
+        dropped_model = GridSearchCV(dropped_pipeline, param_grid=param_grid,
                                      n_jobs=-1,
                                      scoring='f1', cv=5)
 
@@ -552,14 +548,9 @@ def german_experiment():
 
         kamiran_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
                                            ('clf',
-                                            LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                                               max_iter=100000, multi_class='auto'))])
+                                            my_model)])
 
-        kamiran_model = GridSearchCV(kamiran_pipeline, param_grid={
-            'clf__penalty': ['l2'], 'clf__C': [0.5, 1.0, 5.0], 'clf__solver': ['lbfgs'],
-            'clf__class_weight': [None, 'balanced'],
-            'clf__max_iter': [100000], 'clf__multi_class': ['auto'], 'clf__n_jobs': [-1]
-        },
+        kamiran_model = GridSearchCV(kamiran_pipeline, param_grid=param_grid,
                                      n_jobs=-1,
                                      scoring='f1', cv=5)
 
@@ -615,6 +606,7 @@ def german_experiment():
              ctpb_kamiran, ctnb_kamiran, f1_kamiran, end_time])
 
         ##### Kamiran reweighting
+        '''
 
         start_time = time.time()
 
@@ -623,11 +615,7 @@ def german_experiment():
         X_train = train_df.loc[:, [i for i in list(credit_df) if i != target]]
         y_train = np.ravel(train_df.loc[:, target].to_numpy())
 
-        kamiran_model = GridSearchCV(kamiran_pipeline, param_grid={
-            'clf__penalty': ['l2'], 'clf__C': [0.5, 1.0, 5.0], 'clf__solver': ['lbfgs'],
-            'clf__class_weight': [None, 'balanced'],
-            'clf__max_iter': [100000], 'clf__multi_class': ['auto'], 'clf__n_jobs': [-1]
-        },
+        kamiran_model = GridSearchCV(kamiran_pipeline, param_grid=param_grid,
                                      n_jobs=-1,
                                      scoring='f1', cv=5)
 
@@ -681,6 +669,8 @@ def german_experiment():
              dp_kamiran, tpb_kamiran, tnb_kamiran,
              cdp_kamiran,
              ctpb_kamiran, ctnb_kamiran, f1_kamiran, end_time])
+             
+        '''
 
         ######## Capuchin ad-hoc binning
 
@@ -706,14 +696,9 @@ def german_experiment():
 
         capuchin_pipeline = Pipeline(steps=[('preprocessor', preprocessor_3),
                                             ('clf',
-                                             LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                                                max_iter=100000, multi_class='auto', n_jobs=-1))])
+                                             my_model)])
 
-        capuchin_model = GridSearchCV(capuchin_pipeline, param_grid={
-            'clf__penalty': ['l2'], 'clf__C': [1.0], 'clf__solver': ['lbfgs'],
-            'clf__class_weight': [None],
-            'clf__max_iter': [100000], 'clf__multi_class': ['auto'], 'clf__n_jobs': [-1]
-        },
+        capuchin_model = GridSearchCV(capuchin_pipeline, param_grid=param_grid,
                                       n_jobs=-1,
                                       scoring='f1', cv=5)
 
@@ -784,6 +769,7 @@ def german_experiment():
         print('CTNB capuchin ad-hoc: ' + str(ctnb_capuchin))
         print('F1 capuchin ad-hoc: ' + str(f1_capuchin))
 
+
         results.append(
             ['Adult', 'Capuchin ad-hoc', list(credit_df), fold, rod_capuchin,
              dp_capuchin, tpb_capuchin, tnb_capuchin,
@@ -842,14 +828,9 @@ def german_experiment():
 
         capuchin_pipeline = Pipeline(steps=[('preprocessor', preprocessor_3),
                                             ('clf',
-                                             LogisticRegression(penalty='l2', C=1, solver='lbfgs',
-                                                                max_iter=100000, multi_class='auto', n_jobs=-1))])
+                                             my_model)])
 
-        capuchin_model = GridSearchCV(capuchin_pipeline, param_grid={
-            'clf__penalty': ['l2'], 'clf__C': [1.0], 'clf__solver': ['lbfgs'],
-            'clf__class_weight': [None, 'balanced'],
-            'clf__max_iter': [100000], 'clf__multi_class': ['auto'], 'clf__n_jobs': [-1]
-        },
+        capuchin_model = GridSearchCV(capuchin_pipeline, param_grid=param_grid,
                                       n_jobs=-1,
                                       scoring='f1', cv=5)
 
