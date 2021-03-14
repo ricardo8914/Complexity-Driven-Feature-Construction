@@ -19,9 +19,10 @@ if __name__ == '__main__':
 
     german_results = german_experiment()
     compas_results = COMPAS_experiment()
-    adult_results = adult_experiment()
+    #adult_results = adult_experiment()
 
-    all_results = pd.concat([german_results, compas_results, adult_results], axis=0, ignore_index=True)
+    #all_results = pd.concat([german_results, compas_results, adult_results], axis=0, ignore_index=True)
+    all_results = pd.concat([german_results, compas_results], axis=0, ignore_index=True)
 
     all_results.to_csv(
         path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_guarantee_experiments.csv',

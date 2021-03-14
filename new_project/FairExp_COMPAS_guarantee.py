@@ -933,8 +933,8 @@ def COMPAS_experiment():
                               columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime'])
 
-    # results_df.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_experiment_COMPAS.csv',
-    #                   index=False)
+    results_df.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_experiment_COMPAS.csv',
+                       index=False)
 
     return results_df
 
