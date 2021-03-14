@@ -31,7 +31,7 @@ results_path.mkdir(parents=True, exist_ok=True)
 df = pd.read_csv(path + '/Traffic_Violations_.csv', sep=',', header=0)
 df.dropna(inplace=True)
 
-df = df.sample(n=1000000, replace=False, random_state=1)
+df = df.sample(n=10000, replace=False, random_state=1)
 
 print(df.shape)
 
@@ -224,7 +224,7 @@ if __name__ == '__main__':
     mp.set_start_method('fork')
 
     #sampling_list = [0.001, 0.01, 0.1, 0.5]
-    sampling_list = [0.01]
+    sampling_list = [1.0]
 
     results = pd.DataFrame(columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime', 'Features', 'Constructed Features', 'Rows', 'Complexity'])
