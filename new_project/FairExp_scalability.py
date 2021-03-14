@@ -38,6 +38,8 @@ print(df.shape)
 df.drop(columns=['Description', 'Gender', 'Article', 'Charge', 'HAZMAT', 'Model', 'Make', 'Latitude', 'Longitude', 'Location',
                  'SubAgency', 'Agency', 'Time Of Stop', 'Date Of Stop', 'Geolocation', 'Driver City', 'Color'], inplace=True)
 
+print(df.shape)
+
 def label(row):
     if row['Violation Type'] == 'Citation':
         return 1
@@ -92,7 +94,7 @@ def scalability_experiment(sampling=0.1, complexity=4):
                                               LogisticRegression(penalty='l2', C=1, solver='lbfgs',
                                                                  class_weight='balanced',
                                                                  max_iter=100000, multi_class='auto'),
-                                              sampling=sampling)
+                                              sampling=sampling, number_of_paralllelism=mp.cpu_count(), kfold_parallelism=1,)
 
         print('full time: ' + str(time.time() - start_time))
 
@@ -212,7 +214,7 @@ def scalability_experiment(sampling=0.1, complexity=4):
                               columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime', 'Features', 'Constructed Features', 'Rows', 'Complexity'])
 
-    results_df.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_scalabality.csv',index=False)
+    results_df.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_scalabality' + str(time.time()) +'.csv',index=False)
 
     return results_df
 
@@ -222,15 +224,16 @@ if __name__ == '__main__':
     mp.set_start_method('fork')
 
     #sampling_list = [0.001, 0.01, 0.1, 0.5]
-    sampling_list = [0.001, 0.01, 0.1, 0.5]
+    sampling_list = [0.01]
 
     results = pd.DataFrame(columns=['Dataset', 'Method', 'Representation', 'Fold', 'ROD', 'DP', 'TPB', 'TNB',
                                        'CDP', 'CTPB', 'CTNB', 'F1', 'Runtime', 'Features', 'Constructed Features', 'Rows', 'Complexity'])
     for i in sampling_list:
-        print('sampling ' + str(round(i * df.shape[0])) + ' ' + 'rows')
-        a = scalability_experiment(sampling=i, complexity=3)
-        results = results.append(a)
+        for complexity in [4,3,2,1]:
+            print('sampling ' + str(round(i * df.shape[0])) + ' ' + 'rows')
+            a = scalability_experiment(sampling=i, complexity=complexity)
+            results = results.append(a)
 
-        results.to_csv(
-                path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_scalability_experiments.csv',
-                index=False)
+            results.to_csv(
+                    path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/FairExp_scalability_experiments_complexity'+ str(complexity) +'.csv',
+                    index=False)
