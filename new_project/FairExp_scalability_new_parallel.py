@@ -31,7 +31,7 @@ results_path.mkdir(parents=True, exist_ok=True)
 df = pd.read_csv(path + '/Traffic_Violations_.csv', sep=',', header=0)
 df.dropna(inplace=True)
 
-df = df.sample(n=10000, replace=False, random_state=1)
+df = df.sample(n=100000, replace=False, random_state=1)
 
 print(df.shape)
 
