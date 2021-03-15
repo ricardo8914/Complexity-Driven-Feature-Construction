@@ -225,7 +225,7 @@ if __name__ == '__main__':
 
     mp.set_start_method('fork')
 
-    german_results = scalability_experiment(umber_model_parallelism=1, number_speculativ_parallelism=1,
+    german_results = scalability_experiment(number_model_parallelism=1, number_speculativ_parallelism=1,
                                        number_kfold_parallelism=1)
     german_results.to_csv(path_or_buf=home + '/Complexity-Driven-Feature-Construction/results/new_mp1,sp1,fp1.csv',
                           index=False)
