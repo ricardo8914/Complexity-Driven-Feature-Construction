@@ -31,7 +31,7 @@ results_path.mkdir(parents=True, exist_ok=True)
 df = pd.read_csv(path + '/Traffic_Violations_.csv', sep=',', header=0)
 df.dropna(inplace=True)
 
-df = df.sample(n=100000, replace=False, random_state=1)
+df = df.sample(n=10000, replace=False, random_state=1)
 
 print(df.shape)
 
@@ -66,7 +66,7 @@ sensitive_features = [sensitive_feature]
 kf1 = KFold(n_splits=5, random_state=42, shuffle=True)
 f1 = make_scorer(f1_score, greater_is_better=True, needs_threshold=False)
 
-def scalability_experiment(sampling=1.0, complexity=3, number_model_parallelism=mp.cpu_count(), number_speculativ_parallelism=1, number_kfold_parallelism=1):
+def scalability_experiment(sampling=1.0, complexity=4, number_model_parallelism=mp.cpu_count(), number_speculativ_parallelism=1, number_kfold_parallelism=1):
     fold = 1
     results = []
     y = np.ravel(df[target].to_numpy())
